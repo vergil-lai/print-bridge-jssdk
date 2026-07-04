@@ -1,5 +1,6 @@
 node_modules/
 dist/
+examples/dist/
 AGENTS.md
 CLAUDE.md
 .DS_Store

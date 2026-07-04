@@ -39,6 +39,14 @@
     "websocket",
     "sdk"
   ],
+  "homepage": "https://github.com/vergil-lai/print-bridge-jssdk#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vergil-lai/print-bridge-jssdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/vergil-lai/print-bridge-jssdk/issues"
+  },
   "license": "MIT",
   "devDependencies": {
     "@commitlint/cli": "^21.2.0",
