@@ -1,6 +1,6 @@
-# @print-bridge/sdk
+# print-bridge-sdk
 
-`@print-bridge/sdk` 是 PrintBridge 的浏览器端 JS SDK。它负责从 Web 页面连接用户电脑上的 PrintBridge 本地服务，并通过 WebSocket 下发静默打印任务。
+`print-bridge-sdk` 是 PrintBridge 的浏览器端 JS SDK。它负责从 Web 页面连接用户电脑上的 PrintBridge 本地服务，并通过 WebSocket 下发静默打印任务。
 
 典型场景：
 
@@ -8,25 +8,25 @@
 - 浏览器页面把远程 PDF、图片或页面 HTML 交给本机打印机
 - 业务系统不希望弹出浏览器打印预览窗口
 
-桌面端项目见 [`PrintBridge`](https://github.com/vergil-lai/print-bridge/README.md)。
+桌面端项目见 [`PrintBridge`](https://github.com/vergil-lai/print-bridge)。
 
 ## 安装
 
 ```bash
-pnpm add @print-bridge/sdk
+pnpm add print-bridge-sdk
 ```
 
 也可以使用 npm 或 yarn：
 
 ```bash
-npm install @print-bridge/sdk
-yarn add @print-bridge/sdk
+npm install print-bridge-sdk
+yarn add print-bridge-sdk
 ```
 
 ## 快速开始
 
 ```ts
-import { PrintBridgeClient } from "@print-bridge/sdk";
+import { PrintBridgeClient } from "print-bridge-sdk";
 
 const client = new PrintBridgeClient({
   ip: "127.0.0.1",
@@ -230,7 +230,7 @@ cancelled
 ## 错误处理
 
 ```ts
-import { PrintBridgeClient, PrintBridgeError } from "@print-bridge/sdk";
+import { PrintBridgeClient, PrintBridgeError } from "print-bridge-sdk";
 
 try {
   await client.print({
