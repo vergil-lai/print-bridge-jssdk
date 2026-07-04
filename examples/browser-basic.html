@@ -50,6 +50,36 @@
         margin-bottom: 20px;
       }
 
+      .printable-preview {
+        width: min(420px, 100%);
+        margin-bottom: 20px;
+        border: 1px solid #cfd7e3;
+        border-radius: 8px;
+        background: #f8fafc;
+        padding: 18px;
+      }
+
+      .printable-preview h2 {
+        margin: 0 0 10px;
+        font-size: 20px;
+      }
+
+      .printable-preview dl {
+        display: grid;
+        grid-template-columns: 96px 1fr;
+        gap: 8px 12px;
+        margin: 0;
+      }
+
+      .printable-preview dt {
+        color: #64748b;
+      }
+
+      .printable-preview dd {
+        margin: 0;
+        font-weight: 700;
+      }
+
       button {
         border: 0;
         border-radius: 6px;
@@ -93,7 +123,22 @@
           <button id="print-pdf" disabled>打印 PDF</button>
           <button id="print-jpg" class="secondary" disabled>打印 JPG</button>
           <button id="print-batch" disabled>批量打印</button>
+          <button id="print-html" disabled>打印 HTML</button>
+          <button id="print-html-raw" disabled>打印 HTML Raw</button>
         </div>
+        <section id="html-printable" class="printable-preview">
+          <h2>PrintBridge HTML Sample</h2>
+          <dl>
+            <dt>Order</dt>
+            <dd>PB-20260705-001</dd>
+            <dt>Format</dt>
+            <dd>HTML element</dd>
+            <dt>Paper</dt>
+            <dd>A4 210 x 297 mm</dd>
+            <dt>Status</dt>
+            <dd>Ready to print</dd>
+          </dl>
+        </section>
         <pre id="log"></pre>
       </section>
     </main>
@@ -116,6 +161,8 @@
       const printPdfButton = document.querySelector('#print-pdf');
       const printJpgButton = document.querySelector('#print-jpg');
       const printBatchButton = document.querySelector('#print-batch');
+      const printHtmlButton = document.querySelector('#print-html');
+      const printHtmlRawButton = document.querySelector('#print-html-raw');
 
       function log(message, value) {
         const line = value ? `${message} ${JSON.stringify(value)}` : message;
@@ -127,6 +174,8 @@
         printPdfButton.disabled = !enabled;
         printJpgButton.disabled = !enabled;
         printBatchButton.disabled = !enabled;
+        printHtmlButton.disabled = !enabled;
+        printHtmlRawButton.disabled = !enabled;
       }
 
       client.on('connect', () => log('connected'));
@@ -218,6 +267,91 @@
         });
 
         log('batch queued', accepted);
+      });
+
+      printHtmlButton.addEventListener('click', async () => {
+        const accepted = await client.print({
+          requestId: 'EXAMPLE-HTML-001',
+          jobId: 'EXAMPLE-HTML-JOB-001',
+          type: 'html',
+          printable: 'html-printable',
+          copies: 1,
+          paper: {
+            widthMm: 210,
+            heightMm: 297,
+          },
+          documentTitle: 'PrintBridge HTML Sample',
+          html2pdfOptions: {
+            margin: 12,
+          },
+        });
+
+        log('html queued', accepted);
+      });
+
+      printHtmlRawButton.addEventListener('click', async () => {
+        const accepted = await client.print({
+          requestId: 'EXAMPLE-HTML-RAW-001',
+          jobId: 'EXAMPLE-HTML-RAW-JOB-001',
+          type: 'html-raw',
+          html: `
+            <section class="raw-page">
+              <h1>PrintBridge HTML Raw Sample</h1>
+              <p>Raw HTML is rendered to a PDF data URL in the browser before it is sent to the local Agent.</p>
+              <table>
+                <tbody>
+                  <tr><th>Order</th><td>PB-RAW-20260705-001</td></tr>
+                  <tr><th>Format</th><td>html-raw</td></tr>
+                  <tr><th>Paper</th><td>A4 210 x 297 mm</td></tr>
+                </tbody>
+              </table>
+            </section>
+          `,
+          style: `
+            body {
+              font-family: Arial, sans-serif;
+              color: #172033;
+            }
+
+            .raw-page {
+              border: 2px solid #0f766e;
+              padding: 28px;
+            }
+
+            h1 {
+              margin: 0 0 16px;
+              color: #0f766e;
+            }
+
+            p {
+              margin: 0 0 20px;
+              color: #475569;
+            }
+
+            table {
+              width: 100%;
+              border-collapse: collapse;
+            }
+
+            th,
+            td {
+              border: 1px solid #cbd5e1;
+              padding: 10px 12px;
+              text-align: left;
+            }
+          `,
+          copies: 1,
+          paper: {
+            widthMm: 210,
+            heightMm: 297,
+          },
+          documentTitle: 'PrintBridge HTML Raw Sample',
+          html2pdfOptions: {
+            margin: 12,
+          },
+        });
+
+        log('html raw queued', accepted);
       });
     </script>
   </body>
