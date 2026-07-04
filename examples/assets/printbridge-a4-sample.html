@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>PrintBridge HTML Sample</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 18mm;
+      }
+
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        color: #172033;
+      }
+
+      main {
+        min-height: 250mm;
+        border: 2px solid #2563eb;
+        padding: 22mm;
+      }
+
+      h1 {
+        margin: 0 0 8mm;
+        color: #2563eb;
+        font-size: 28px;
+      }
+
+      p {
+        margin: 0 0 12mm;
+        color: #475569;
+        font-size: 15px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        border: 1px solid #cbd5e1;
+        padding: 10px 12px;
+        text-align: left;
+      }
+
+      th {
+        width: 120px;
+        background: #eff6ff;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>PrintBridge HTML URL Sample</h1>
+      <p>This file is loaded by URL, rendered to PDF in the browser, then sent to the local Agent.</p>
+      <table>
+        <tbody>
+          <tr>
+            <th>Order</th>
+            <td>PB-HTML-20260705-001</td>
+          </tr>
+          <tr>
+            <th>Format</th>
+            <td>html</td>
+          </tr>
+          <tr>
+            <th>Paper</th>
+            <td>A4 210 x 297 mm</td>
+          </tr>
+          <tr>
+            <th>Source</th>
+            <td>GitHub raw URL</td>
+          </tr>
+        </tbody>
+      </table>
+    </main>
+  </body>
+</html>

@@ -133,18 +133,27 @@ await client.printBatch({
 
 ## HTML 打印
 
-HTML 打印会在浏览器侧先转换成 PDF(使用[html2pdf.js](https://github.com/eKoopmans/html2pdf.js)) data URL，再通过普通 PDF 任务发送给本地服务。
+HTML 打印会在浏览器侧先下载 HTML URL 或读取页面元素，再转换成 PDF(使用[html2pdf.js](https://github.com/eKoopmans/html2pdf.js)) data URL，最后通过普通 PDF 任务发送给本地服务。
 
-打印页面元素：
+打印远程 HTML 地址：
+
+```ts
+await client.print({
+  type: "html",
+  fileUrl: "https://example.com/label.html",
+  paper: {
+    widthMm: 60,
+    heightMm: 40,
+  },
+});
+```
+
+也兼容打印当前页面元素：
 
 ```ts
 await client.print({
   type: "html",
   printable: "label-root",
-  paper: {
-    widthMm: 60,
-    heightMm: 40,
-  },
 });
 ```
 
@@ -259,7 +268,7 @@ try {
 SDK 会在发送前做基础校验：
 
 - `type` 只能是 `pdf`、`image`、`html`、`html-raw`
-- `pdf` 和 `image` 的 `fileUrl` 必须是 HTTP(S) URL
+- `pdf`、`image` 和 HTML URL 打印的 `fileUrl` 必须是 HTTP(S) URL
 - `pdf` 额外接受 `data:application/pdf;base64,...`
 - `copies` 必须是正整数
 - `paper.widthMm` 和 `paper.heightMm` 必须大于 0

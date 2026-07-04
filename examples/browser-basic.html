@@ -50,36 +50,6 @@
         margin-bottom: 20px;
       }
 
-      .printable-preview {
-        width: min(420px, 100%);
-        margin-bottom: 20px;
-        border: 1px solid #cfd7e3;
-        border-radius: 8px;
-        background: #f8fafc;
-        padding: 18px;
-      }
-
-      .printable-preview h2 {
-        margin: 0 0 10px;
-        font-size: 20px;
-      }
-
-      .printable-preview dl {
-        display: grid;
-        grid-template-columns: 96px 1fr;
-        gap: 8px 12px;
-        margin: 0;
-      }
-
-      .printable-preview dt {
-        color: #64748b;
-      }
-
-      .printable-preview dd {
-        margin: 0;
-        font-weight: 700;
-      }
-
       button {
         border: 0;
         border-radius: 6px;
@@ -115,7 +85,7 @@
   <body>
     <main>
       <h1>PrintBridge JSSDK Example</h1>
-      <p>使用 GitHub raw URL 提交 A4 PDF 和 JPG 打印任务。</p>
+      <p>使用 GitHub raw URL 提交 A4 PDF、JPG 和 HTML 打印任务。</p>
 
       <section class="panel">
         <div class="actions">
@@ -126,19 +96,6 @@
           <button id="print-html" disabled>打印 HTML</button>
           <button id="print-html-raw" disabled>打印 HTML Raw</button>
         </div>
-        <section id="html-printable" class="printable-preview">
-          <h2>PrintBridge HTML Sample</h2>
-          <dl>
-            <dt>Order</dt>
-            <dd>PB-20260705-001</dd>
-            <dt>Format</dt>
-            <dd>HTML element</dd>
-            <dt>Paper</dt>
-            <dd>A4 210 x 297 mm</dd>
-            <dt>Status</dt>
-            <dd>Ready to print</dd>
-          </dl>
-        </section>
         <pre id="log"></pre>
       </section>
     </main>
@@ -150,6 +107,8 @@
         'https://raw.githubusercontent.com/vergil-lai/print-bridge-jssdk/main/examples/assets/printbridge-a4-sample.pdf';
       const jpgUrl =
         'https://raw.githubusercontent.com/vergil-lai/print-bridge-jssdk/main/examples/assets/printbridge-a4-sample.jpg';
+      const htmlUrl =
+        'https://raw.githubusercontent.com/vergil-lai/print-bridge-jssdk/main/examples/assets/printbridge-a4-sample.html';
 
       const client = new PrintBridgeClient({
         ip: '127.0.0.1',
@@ -274,7 +233,7 @@
           requestId: 'EXAMPLE-HTML-001',
           jobId: 'EXAMPLE-HTML-JOB-001',
           type: 'html',
-          printable: 'html-printable',
+          fileUrl: htmlUrl,
           copies: 1,
           paper: {
             widthMm: 210,

@@ -83,11 +83,21 @@ export interface PrintBridgeImageJob extends PrintBridgeJobBase {
   fileUrl: string;
 }
 
+/** 打印远程 HTML 地址。 */
+export interface PrintBridgeHtmlUrlJob extends PrintBridgeJobBase, PrintBridgeHtmlConfiguration {
+  type: 'html';
+  fileUrl: string;
+}
+
 /** 打印页面中某个 HTML 元素。 */
-export interface PrintBridgeHtmlJob extends PrintBridgeJobBase, PrintBridgeHtmlConfiguration {
+export interface PrintBridgeHtmlElementJob
+  extends PrintBridgeJobBase, PrintBridgeHtmlConfiguration {
   type: 'html';
   printable: string | HTMLElement;
 }
+
+/** 打印远程 HTML 地址或页面中的某个 HTML 元素。 */
+export type PrintBridgeHtmlJob = PrintBridgeHtmlUrlJob | PrintBridgeHtmlElementJob;
 
 /** 直接打印 raw HTML 字符串。 */
 export interface PrintBridgeRawHtmlJob extends PrintBridgeJobBase, PrintBridgeHtmlConfiguration {

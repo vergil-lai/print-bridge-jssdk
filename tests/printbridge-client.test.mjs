@@ -291,6 +291,86 @@ test('converts raw HTML print jobs to a pdf data URL before printing', async () 
   });
 });
 
+test('downloads HTML URL jobs before converting them to a pdf data URL', async () => {
+  const originalFetch = globalThis.fetch;
+  const generatedFileUrl = 'data:application/pdf;base64,JVBERi0xLjcKJSVFT0Y=';
+  const conversions = [];
+  const fetchCalls = [];
+
+  globalThis.fetch = async url => {
+    fetchCalls.push(url);
+    return {
+      ok: true,
+      status: 200,
+      text: async () => '<main><h1>Remote label</h1></main>',
+    };
+  };
+
+  try {
+    const { client, socket } = await connectClient({
+      htmlToPdf: async (html, options) => {
+        conversions.push({ html, options });
+        return generatedFileUrl;
+      },
+    });
+
+    const accepted = client.print({
+      requestId: 'REQ-HTML-URL-001',
+      jobId: 'JOB-HTML-URL-001',
+      type: 'html',
+      fileUrl: 'https://test.com/label.html',
+      copies: 1,
+      paper: {
+        widthMm: 210,
+        heightMm: 297,
+      },
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(fetchCalls).toEqual(['https://test.com/label.html']);
+    expect(conversions).toEqual([
+      {
+        html: '<main><h1>Remote label</h1></main>',
+        options: {
+          paper: {
+            widthMm: 210,
+            heightMm: 297,
+          },
+        },
+      },
+    ]);
+
+    expect(socket.sent.at(-1)).toEqual({
+      type: 'print',
+      request_id: 'REQ-HTML-URL-001',
+      job_id: 'JOB-HTML-URL-001',
+      format: 'pdf',
+      file_url: generatedFileUrl,
+      copies: 1,
+      paper: {
+        width_mm: 210,
+        height_mm: 297,
+      },
+    });
+
+    socket.message({
+      type: 'job_status',
+      request_id: 'REQ-HTML-URL-001',
+      job_id: 'JOB-HTML-URL-001',
+      status: 'queued',
+    });
+
+    await expect(accepted).resolves.toMatchObject({
+      requestId: 'REQ-HTML-URL-001',
+      jobId: 'JOB-HTML-URL-001',
+      status: 'queued',
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('emits status events for job_status messages', async () => {
   const { client, socket } = await connectClient();
   const statuses = [];

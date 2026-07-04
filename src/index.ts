@@ -661,7 +661,7 @@ export class PrintBridgeClient {
   private async resolveHtmlPrintableJob(
     job: Extract<ResolvedPrintBridgeJob, { type: 'html' | 'html-raw' }>,
   ): Promise<AgentPrintableJob> {
-    const html = job.type === 'html' ? resolvePrintableElement(job.printable).outerHTML : job.html;
+    const html = job.type === 'html' ? await resolveHtmlJobContent(job) : job.html;
     const fileUrl = await this.renderHtmlToPdf(html, htmlRenderOptions(job));
 
     return {
@@ -832,6 +832,7 @@ function validateJob(job: PrintBridgeJob): void {
   }
 
   if (job.type === 'html') {
+    validateHtmlJob(job);
     validateHtmlConfiguration(job);
   }
 
@@ -878,6 +879,36 @@ function validateHtmlConfiguration(
   }
 }
 
+/** 校验 HTML 任务输入来源，远程 URL 和页面元素只能二选一。 */
+function validateHtmlJob(job: Extract<PrintBridgeJob, { type: 'html' }>): void {
+  const hasFileUrl = hasNonEmptyStringField(job, 'fileUrl');
+  const hasPrintable =
+    'printable' in job && (typeof job.printable !== 'string' || job.printable.trim().length > 0);
+
+  if (hasFileUrl === hasPrintable) {
+    throw new PrintBridgeError(
+      'INVALID_MESSAGE',
+      'html job requires exactly one of fileUrl or printable.',
+    );
+  }
+
+  if (hasFileUrl && !isHttpUrl(job.fileUrl)) {
+    throw new PrintBridgeError(
+      'INVALID_MESSAGE',
+      'fileUrl must be an http or https URL for HTML printing.',
+    );
+  }
+}
+
+/** 判断对象上的字段是否是非空字符串。 */
+function hasNonEmptyStringField<K extends string>(
+  value: object,
+  field: K,
+): value is Record<K, string> {
+  const fieldValue = (value as Record<string, unknown>)[field];
+  return typeof fieldValue === 'string' && fieldValue.trim().length > 0;
+}
+
 /** 要求调用方提供的选项中该字符串字段不能为空。 */
 function assertRequired(value: string, field: string): void {
   if (!value || value.trim().length === 0) {
@@ -891,6 +922,11 @@ function isPrintableFileUrl(value: string, type: AgentPrintableType): boolean {
     return true;
   }
 
+  return isHttpUrl(value);
+}
+
+/** 判断字符串是否是 HTTP(S) URL。 */
+function isHttpUrl(value: string): boolean {
   try {
     const url = new URL(value);
     return url.protocol === 'http:' || url.protocol === 'https:';
@@ -916,6 +952,40 @@ function isPdfDataUrl(value: string): boolean {
     mediaType?.toLowerCase() === 'application/pdf' &&
     metadata.some(part => part.toLowerCase() === 'base64')
   );
+}
+
+/** 解析 HTML 任务内容：支持远程 HTML URL 或当前页面元素。 */
+async function resolveHtmlJobContent(
+  job: Extract<ResolvedPrintBridgeJob, { type: 'html' }>,
+): Promise<string> {
+  if ('fileUrl' in job) {
+    return fetchHtml(job.fileUrl);
+  }
+
+  return resolvePrintableElement(job.printable).outerHTML;
+}
+
+/** 下载远程 HTML 文本，交给后续 HTML 转 PDF 流程。 */
+async function fetchHtml(fileUrl: string): Promise<string> {
+  if (typeof fetch !== 'function') {
+    throw new PrintBridgeError('INVALID_MESSAGE', 'HTML URL printing requires fetch.');
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(fileUrl);
+  } catch (cause) {
+    throw new PrintBridgeError('DOWNLOAD_FAILED', 'Failed to download HTML file.', { cause });
+  }
+
+  if (!response.ok) {
+    throw new PrintBridgeError(
+      'DOWNLOAD_FAILED',
+      `Failed to download HTML file: HTTP ${response.status}.`,
+    );
+  }
+
+  return response.text();
 }
 
 /** 从 ID 或元素实例解析要打印的 DOM 元素。 */

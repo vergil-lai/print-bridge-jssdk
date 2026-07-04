@@ -6,8 +6,9 @@
 
 - PDF: `https://raw.githubusercontent.com/vergil-lai/print-bridge-jssdk/main/examples/assets/printbridge-a4-sample.pdf`
 - JPG: `https://raw.githubusercontent.com/vergil-lai/print-bridge-jssdk/main/examples/assets/printbridge-a4-sample.jpg`
+- HTML: `https://raw.githubusercontent.com/vergil-lai/print-bridge-jssdk/main/examples/assets/printbridge-a4-sample.html`
 
-这两个文件都是 A4 尺寸，用来测试远程 PDF 和图片打印链路。
+这些文件都是 A4 尺寸，用来测试远程 PDF、图片和 HTML 打印链路。
 
 ## 浏览器示例
 
@@ -29,9 +30,9 @@ npx serve .
 http://localhost:3000/examples/browser-basic.html
 ```
 
-这个页面包含单个 PDF、单个 JPG、批量打印、HTML 元素打印和 raw HTML 打印示例。
+这个页面包含单个 PDF、单个 JPG、批量打印、HTML URL 打印和 raw HTML 打印示例。
 
-HTML 示例会在浏览器里先把 HTML 转成 PDF data URL，再交给本机 Agent 打印。默认实现会按需加载 `html2pdf.js` CDN；如果你的环境禁用了外部脚本，请在业务代码里通过 `htmlToPdf` 注入自己的转换实现。
+HTML 示例会在浏览器里先下载 HTML URL，再转成 PDF data URL，最后交给本机 Agent 打印。默认实现会按需加载 `html2pdf.js` CDN；如果你的环境禁用了外部脚本，请在业务代码里通过 `htmlToPdf` 注入自己的转换实现。
 
 如果本机 Agent 配置了 Origin 白名单，需要把这个页面的 Origin 加进去，例如 `http://localhost:3000`。
 
