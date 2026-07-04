@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PrintBridge JSSDK Example</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        color: #172033;
+        background: #f6f8fb;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+      }
+
+      main {
+        width: min(760px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 48px 0;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 28px;
+        line-height: 1.2;
+      }
+
+      p {
+        margin: 0 0 24px;
+        color: #526070;
+      }
+
+      .panel {
+        border: 1px solid #d8dee8;
+        border-radius: 8px;
+        background: #ffffff;
+        padding: 20px;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+
+      button {
+        border: 0;
+        border-radius: 6px;
+        background: #2563eb;
+        color: white;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 600;
+        padding: 10px 14px;
+      }
+
+      button.secondary {
+        background: #0f766e;
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+      }
+
+      pre {
+        min-height: 220px;
+        margin: 0;
+        overflow: auto;
+        border-radius: 6px;
+        background: #101827;
+        color: #d7e1f0;
+        padding: 16px;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>PrintBridge JSSDK Example</h1>
+      <p>使用 GitHub raw URL 提交 A4 PDF 和 JPG 打印任务。</p>
+
+      <section class="panel">
+        <div class="actions">
+          <button id="connect">连接 Agent</button>
+          <button id="print-pdf" disabled>打印 PDF</button>
+          <button id="print-jpg" class="secondary" disabled>打印 JPG</button>
+          <button id="print-batch" disabled>批量打印</button>
+        </div>
+        <pre id="log"></pre>
+      </section>
+    </main>
+
+    <script type="module">
+      import { PrintBridgeClient } from '../dist/index.js';
+
+      const pdfUrl =
+        'https://raw.githubusercontent.com/vergil-lai/print-bridge-jssdk/main/examples/assets/printbridge-a4-sample.pdf';
+      const jpgUrl =
+        'https://raw.githubusercontent.com/vergil-lai/print-bridge-jssdk/main/examples/assets/printbridge-a4-sample.jpg';
+
+      const client = new PrintBridgeClient({
+        ip: '127.0.0.1',
+        port: 17890,
+      });
+
+      const logElement = document.querySelector('#log');
+      const connectButton = document.querySelector('#connect');
+      const printPdfButton = document.querySelector('#print-pdf');
+      const printJpgButton = document.querySelector('#print-jpg');
+      const printBatchButton = document.querySelector('#print-batch');
+
+      function log(message, value) {
+        const line = value ? `${message} ${JSON.stringify(value)}` : message;
+        logElement.textContent += `${line}\n`;
+        logElement.scrollTop = logElement.scrollHeight;
+      }
+
+      function setPrintButtons(enabled) {
+        printPdfButton.disabled = !enabled;
+        printJpgButton.disabled = !enabled;
+        printBatchButton.disabled = !enabled;
+      }
+
+      client.on('connect', () => log('connected'));
+      client.on('disconnect', event => {
+        log('disconnected', event);
+        setPrintButtons(false);
+      });
+      client.on('status', event => log('status', event));
+      client.on('error', error =>
+        log('error', {
+          code: error.code,
+          message: error.message,
+          requestId: error.requestId,
+        }),
+      );
+
+      connectButton.addEventListener('click', async () => {
+        try {
+          await client.connect();
+          const pong = await client.ping();
+          log('pong', pong);
+          setPrintButtons(true);
+        } catch (error) {
+          log('connect failed', {
+            code: error.code,
+            message: error.message,
+          });
+        }
+      });
+
+      printPdfButton.addEventListener('click', async () => {
+        const accepted = await client.print({
+          requestId: 'EXAMPLE-PDF-001',
+          jobId: 'EXAMPLE-PDF-JOB-001',
+          type: 'pdf',
+          fileUrl: pdfUrl,
+          copies: 1,
+          paper: {
+            widthMm: 210,
+            heightMm: 297,
+          },
+        });
+
+        log('pdf queued', accepted);
+      });
+
+      printJpgButton.addEventListener('click', async () => {
+        const accepted = await client.print({
+          requestId: 'EXAMPLE-JPG-001',
+          jobId: 'EXAMPLE-JPG-JOB-001',
+          type: 'image',
+          fileUrl: jpgUrl,
+          copies: 1,
+          paper: {
+            widthMm: 210,
+            heightMm: 297,
+          },
+        });
+
+        log('jpg queued', accepted);
+      });
+
+      printBatchButton.addEventListener('click', async () => {
+        const accepted = await client.printBatch({
+          requestId: 'EXAMPLE-BATCH-001',
+          batchId: 'EXAMPLE-BATCH',
+          jobs: [
+            {
+              jobId: 'EXAMPLE-BATCH-PDF',
+              type: 'pdf',
+              fileUrl: pdfUrl,
+              copies: 1,
+              paper: {
+                widthMm: 210,
+                heightMm: 297,
+              },
+            },
+            {
+              jobId: 'EXAMPLE-BATCH-JPG',
+              type: 'image',
+              fileUrl: jpgUrl,
+              copies: 1,
+              paper: {
+                widthMm: 210,
+                heightMm: 297,
+              },
+            },
+          ],
+        });
+
+        log('batch queued', accepted);
+      });
+    </script>
+  </body>
+</html>
