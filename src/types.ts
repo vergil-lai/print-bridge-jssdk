@@ -1,7 +1,7 @@
 import type { PrintBridgeError } from './index';
 
 /** SDK 对调用方暴露的打印内容类型。 */
-export type PrintBridgeJobType = 'pdf' | 'image' | 'html' | 'html-raw';
+export type PrintBridgeJobType = 'pdf' | 'image';
 
 /** 任务流经本地打印队列时发出的生命周期状态。 */
 export type PrintBridgeJobStatus =
@@ -43,29 +43,6 @@ export interface PrintBridgePaper {
   heightMm: number;
 }
 
-/** Print.js 风格 HTML 打印配置中适合 PrintBridge 的字段。 */
-export interface PrintBridgeHtmlConfiguration {
-  header?: string;
-  headerStyle?: string;
-  maxWidth?: number;
-  css?: string | string[];
-  style?: string;
-  ignoreElements?: string[];
-  documentTitle?: string;
-  html2pdfOptions?: Record<string, unknown>;
-}
-
-/** SDK 内部或测试环境注入的 HTML 转 PDF 实现。 */
-export type PrintBridgeHtmlToPdf = (
-  html: string,
-  options: PrintBridgeHtmlRenderOptions,
-) => Promise<string>;
-
-/** 传给 HTML 转 PDF 实现的完整渲染选项。 */
-export interface PrintBridgeHtmlRenderOptions extends PrintBridgeHtmlConfiguration {
-  paper?: PrintBridgePaper;
-}
-
 /** 单任务和批量请求共用的基础字段。 */
 export interface PrintBridgeJobBase {
   jobId?: string;
@@ -85,34 +62,8 @@ export interface PrintBridgeImageJob extends PrintBridgeJobBase {
   fileUrl: string;
 }
 
-/** 打印远程 HTML 地址。 */
-export interface PrintBridgeHtmlUrlJob extends PrintBridgeJobBase, PrintBridgeHtmlConfiguration {
-  type: 'html';
-  fileUrl: string;
-}
-
-/** 打印页面中某个 HTML 元素。 */
-export interface PrintBridgeHtmlElementJob
-  extends PrintBridgeJobBase, PrintBridgeHtmlConfiguration {
-  type: 'html';
-  printable: string | HTMLElement;
-}
-
-/** 打印远程 HTML 地址或页面中的某个 HTML 元素。 */
-export type PrintBridgeHtmlJob = PrintBridgeHtmlUrlJob | PrintBridgeHtmlElementJob;
-
-/** 直接打印 raw HTML 字符串。 */
-export interface PrintBridgeRawHtmlJob extends PrintBridgeJobBase, PrintBridgeHtmlConfiguration {
-  type: 'html-raw';
-  html: string;
-}
-
 /** 单任务和批量请求共用的打印任务载荷。 */
-export type PrintBridgeJob =
-  | PrintBridgePdfJob
-  | PrintBridgeImageJob
-  | PrintBridgeHtmlJob
-  | PrintBridgeRawHtmlJob;
+export type PrintBridgeJob = PrintBridgePdfJob | PrintBridgeImageJob;
 
 /** 投递单个打印任务的选项。 */
 export type PrintBridgePrintOptions = PrintBridgeJob & {
@@ -233,7 +184,6 @@ export interface PrintBridgeClientOptions {
   requestTimeoutMs?: number;
   autoReconnect?: boolean;
   WebSocket?: WebSocketConstructorLike;
-  htmlToPdf?: PrintBridgeHtmlToPdf;
 }
 
 /** PrintBridgeClient 发出的类型化事件载荷。 */

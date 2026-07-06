@@ -5,7 +5,7 @@
 典型场景：
 
 - ERP、WMS、OMS 等 Web 系统打印标签、面单或小票
-- 浏览器页面把远程 PDF、图片或页面 HTML 交给本机打印机
+- 浏览器页面把远程 PDF 或图片交给本机打印机
 - 业务系统不希望弹出浏览器打印预览窗口
 
 桌面端项目见 [`PrintBridge`](https://github.com/vergil-lai/print-bridge)。
@@ -131,76 +131,6 @@ await client.printBatch({
 
 `requestId`、`batchId` 和每个 job 的 `jobId` 都可以省略，SDK 会自动生成。
 
-## HTML 打印
-
-HTML 打印会在浏览器侧先下载 HTML URL 或读取页面元素，再转换成 PDF(使用[html2pdf.js](https://github.com/eKoopmans/html2pdf.js)) data URL，最后通过普通 PDF 任务发送给本地服务。
-
-打印远程 HTML 地址：
-
-```ts
-await client.print({
-  type: "html",
-  fileUrl: "https://example.com/label.html",
-  paper: {
-    widthMm: 60,
-    heightMm: 40,
-  },
-});
-```
-
-也兼容打印当前页面元素：
-
-```ts
-await client.print({
-  type: "html",
-  printable: "label-root",
-});
-```
-
-打印 raw HTML：
-
-```ts
-await client.print({
-  type: "html-raw",
-  html: "<section><h1>Label</h1></section>",
-  style: "body { font-family: sans-serif; }",
-  maxWidth: 600,
-});
-```
-
-支持的 HTML 配置包括：
-
-```ts
-{
-  header?: string
-  headerStyle?: string
-  maxWidth?: number
-  css?: string | string[]
-  style?: string
-  ignoreElements?: string[]
-  documentTitle?: string
-  html2pdfOptions?: Record<string, unknown>
-}
-```
-
-默认实现会优先使用页面上已有的全局 `html2pdf` 函数。如果不存在，SDK 会按需加载：
-
-```text
-https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.14.0/html2pdf.bundle.min.js
-```
-
-如果你的应用有 CSP、离线部署或自托管要求，可以注入自己的 HTML 转 PDF 实现：
-
-```ts
-const client = new PrintBridgeClient({
-  htmlToPdf: async (html, options) => {
-    return renderHtmlToPdfDataUrl(html, options);
-  },
-});
-```
-
-注入函数必须返回 `data:application/pdf;base64,...`。
-
 ## 状态监听
 
 ```ts
@@ -271,8 +201,8 @@ try {
 
 SDK 会在发送前做基础校验：
 
-- `type` 只能是 `pdf`、`image`、`html`、`html-raw`
-- `pdf`、`image` 和 HTML URL 打印的 `fileUrl` 必须是 HTTP(S) URL
+- `type` 只能是 `pdf`、`image`
+- `pdf` 和 `image` 的 `fileUrl` 必须是 HTTP(S) URL
 - `pdf` 额外接受 `data:application/pdf;base64,...`
 - `copies` 必须是正整数
 - `paper.widthMm` 和 `paper.heightMm` 必须大于 0

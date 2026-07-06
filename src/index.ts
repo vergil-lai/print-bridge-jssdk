@@ -11,9 +11,6 @@ import type {
   PrintBridgeErrorCode,
   PrintBridgeEventHandler,
   PrintBridgeEventMap,
-  PrintBridgeHtmlConfiguration,
-  PrintBridgeHtmlRenderOptions,
-  PrintBridgeHtmlToPdf,
   PrintBridgeJob,
   PrintBridgeJobType,
   PrintBridgePaper,
@@ -33,9 +30,7 @@ const DEFAULT_HEARTBEAT_INTERVAL_MS = 15000;
 const DEFAULT_HEARTBEAT_FAILURE_THRESHOLD = 3;
 const DEFAULT_CONNECT_TIMEOUT_MS = 3000;
 const DEFAULT_REQUEST_TIMEOUT_MS = 3000;
-const HTML2PDF_CDN_URL =
-  'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.14.0/html2pdf.bundle.min.js';
-const VALID_JOB_TYPES = new Set<PrintBridgeJobType>(['pdf', 'image', 'html', 'html-raw']);
+const VALID_JOB_TYPES = new Set<PrintBridgeJobType>(['pdf', 'image']);
 
 type AgentPrintableType = 'pdf' | 'image';
 
@@ -57,19 +52,9 @@ interface AgentBatchOptions {
   jobs: AgentPrintableJob[];
 }
 
-type Html2PdfFactory = () => {
-  set(options: Record<string, unknown>): {
-    from(element: HTMLElement): {
-      outputPdf(type: 'datauristring'): Promise<string>;
-    };
-  };
-};
-
 type ResolvedPrintBridgeJob = PrintBridgeJob & {
   jobId: string;
 };
-
-let html2pdfLoadPromise: Promise<Html2PdfFactory> | null = null;
 
 /** PrintBridge 客户端抛出的错误，包含稳定的协议错误码。 */
 export class PrintBridgeError extends Error {
@@ -93,11 +78,8 @@ export class PrintBridgeError extends Error {
 
 /** 用于连接本地 PrintBridge Agent WebSocket API 的浏览器或 Node.js 客户端。 */
 export class PrintBridgeClient {
-  private readonly options: Required<
-    Omit<PrintBridgeClientOptions, 'WebSocket' | 'htmlToPdf' | 'ip'>
-  > & {
+  private readonly options: Required<Omit<PrintBridgeClientOptions, 'WebSocket' | 'ip'>> & {
     WebSocket?: WebSocketConstructorLike;
-    htmlToPdf?: PrintBridgeHtmlToPdf;
   };
 
   private socket: WebSocketLike | null = null;
@@ -122,7 +104,6 @@ export class PrintBridgeClient {
       requestTimeoutMs: options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS,
       autoReconnect: options.autoReconnect ?? false,
       WebSocket: options.WebSocket,
-      htmlToPdf: options.htmlToPdf,
     };
   }
 
@@ -280,11 +261,7 @@ export class PrintBridgeClient {
     this.assertConnected();
     validatePrintOptions(job);
     const requestId = job.requestId ?? createUuid();
-    const resolvedJob = withJobId(job);
-    const printableJob =
-      resolvedJob.type === 'pdf' || resolvedJob.type === 'image'
-        ? fileJobToAgentJob(resolvedJob)
-        : await this.resolveHtmlPrintableJob(resolvedJob);
+    const printableJob = fileJobToAgentJob(withJobId(job));
 
     return this.createPending(this.pendingRequests, requestId, 'Print request timed out.', () => {
       this.socket?.send(
@@ -304,10 +281,7 @@ export class PrintBridgeClient {
     validateBatchOptions(batch);
     const requestId = batch.requestId ?? createUuid();
     const batchId = batch.batchId ?? createUuid();
-    const jobs = batch.jobs.map(withJobId);
-    const printableJobs = jobs.every(isFileJob)
-      ? jobs.map(fileJobToAgentJob)
-      : await Promise.all(jobs.map(job => this.resolvePrintableJob(job)));
+    const printableJobs = batch.jobs.map(job => fileJobToAgentJob(withJobId(job)));
 
     return this.createPending(
       this.pendingRequests,
@@ -641,44 +615,6 @@ export class PrintBridgeClient {
   private getClosedState(): number {
     return this.options.WebSocket?.CLOSED ?? 3;
   }
-
-  /** 选择注入的或默认的浏览器 HTML 转 PDF 实现。 */
-  private renderHtmlToPdf(html: string, options: PrintBridgeHtmlRenderOptions): Promise<string> {
-    const converter = this.options.htmlToPdf ?? defaultHtmlToPdf;
-    return converter(html, options);
-  }
-
-  /** 把 SDK public job 归一化为 Agent 可直接处理的文件任务。 */
-  private async resolvePrintableJob(job: ResolvedPrintBridgeJob): Promise<AgentPrintableJob> {
-    if (job.type === 'pdf' || job.type === 'image') {
-      return fileJobToAgentJob(job);
-    }
-
-    return this.resolveHtmlPrintableJob(job);
-  }
-
-  /** 把 HTML 类型任务渲染为 PDF data URL。 */
-  private async resolveHtmlPrintableJob(
-    job: Extract<ResolvedPrintBridgeJob, { type: 'html' | 'html-raw' }>,
-  ): Promise<AgentPrintableJob> {
-    const html = job.type === 'html' ? await resolveHtmlJobContent(job) : job.html;
-    const fileUrl = await this.renderHtmlToPdf(html, htmlRenderOptions(job));
-
-    return {
-      jobId: job.jobId,
-      type: 'pdf',
-      fileUrl,
-      copies: job.copies,
-      paper: job.paper,
-    };
-  }
-}
-
-/** 判断任务是否已经是 Agent 可直接接收的文件任务。 */
-function isFileJob(
-  job: ResolvedPrintBridgeJob,
-): job is Extract<ResolvedPrintBridgeJob, { type: 'pdf' | 'image' }> {
-  return job.type === 'pdf' || job.type === 'image';
 }
 
 /** 把 SDK 文件任务转换为 Agent 文件任务。 */
@@ -831,16 +767,6 @@ function validateJob(job: PrintBridgeJob): void {
     }
   }
 
-  if (job.type === 'html') {
-    validateHtmlJob(job);
-    validateHtmlConfiguration(job);
-  }
-
-  if (job.type === 'html-raw') {
-    assertRequired(job.html, 'html');
-    validateHtmlConfiguration(job);
-  }
-
   if (job.copies !== undefined && (!Number.isInteger(job.copies) || job.copies <= 0)) {
     throw new PrintBridgeError('COPIES_OUT_OF_RANGE', 'copies must be a positive integer.');
   }
@@ -854,59 +780,6 @@ function validateJob(job: PrintBridgeJob): void {
       throw new PrintBridgeError('PAPER_NOT_CONFIGURED', 'paper.heightMm must be greater than 0.');
     }
   }
-}
-
-/** 校验 HTML 打印配置中会影响本地渲染的字段。 */
-function validateHtmlConfiguration(
-  job: PrintBridgeHtmlConfiguration & { paper?: PrintBridgePaper },
-): void {
-  if (job.maxWidth !== undefined && (!Number.isFinite(job.maxWidth) || job.maxWidth <= 0)) {
-    throw new PrintBridgeError('INVALID_MESSAGE', 'maxWidth must be greater than 0.');
-  }
-
-  if (job.ignoreElements !== undefined && !Array.isArray(job.ignoreElements)) {
-    throw new PrintBridgeError('INVALID_MESSAGE', 'ignoreElements must be an array.');
-  }
-
-  if (job.paper) {
-    if (job.paper.widthMm <= 0) {
-      throw new PrintBridgeError('PAPER_NOT_CONFIGURED', 'paper.widthMm must be greater than 0.');
-    }
-
-    if (job.paper.heightMm <= 0) {
-      throw new PrintBridgeError('PAPER_NOT_CONFIGURED', 'paper.heightMm must be greater than 0.');
-    }
-  }
-}
-
-/** 校验 HTML 任务输入来源，远程 URL 和页面元素只能二选一。 */
-function validateHtmlJob(job: Extract<PrintBridgeJob, { type: 'html' }>): void {
-  const hasFileUrl = hasNonEmptyStringField(job, 'fileUrl');
-  const hasPrintable =
-    'printable' in job && (typeof job.printable !== 'string' || job.printable.trim().length > 0);
-
-  if (hasFileUrl === hasPrintable) {
-    throw new PrintBridgeError(
-      'INVALID_MESSAGE',
-      'html job requires exactly one of fileUrl or printable.',
-    );
-  }
-
-  if (hasFileUrl && !isHttpUrl(job.fileUrl)) {
-    throw new PrintBridgeError(
-      'INVALID_MESSAGE',
-      'fileUrl must be an http or https URL for HTML printing.',
-    );
-  }
-}
-
-/** 判断对象上的字段是否是非空字符串。 */
-function hasNonEmptyStringField<K extends string>(
-  value: object,
-  field: K,
-): value is Record<K, string> {
-  const fieldValue = (value as Record<string, unknown>)[field];
-  return typeof fieldValue === 'string' && fieldValue.trim().length > 0;
 }
 
 /** 要求调用方提供的选项中该字符串字段不能为空。 */
@@ -952,293 +825,4 @@ function isPdfDataUrl(value: string): boolean {
     mediaType?.toLowerCase() === 'application/pdf' &&
     metadata.some(part => part.toLowerCase() === 'base64')
   );
-}
-
-/** 解析 HTML 任务内容：支持远程 HTML URL 或当前页面元素。 */
-async function resolveHtmlJobContent(
-  job: Extract<ResolvedPrintBridgeJob, { type: 'html' }>,
-): Promise<string> {
-  if ('fileUrl' in job) {
-    return fetchHtml(job.fileUrl);
-  }
-
-  return resolvePrintableElement(job.printable).outerHTML;
-}
-
-/** 下载远程 HTML 文本，交给后续 HTML 转 PDF 流程。 */
-async function fetchHtml(fileUrl: string): Promise<string> {
-  if (typeof fetch !== 'function') {
-    throw new PrintBridgeError('INVALID_MESSAGE', 'HTML URL printing requires fetch.');
-  }
-
-  let response: Response;
-  try {
-    response = await fetch(fileUrl);
-  } catch (cause) {
-    throw new PrintBridgeError('DOWNLOAD_FAILED', 'Failed to download HTML file.', { cause });
-  }
-
-  if (!response.ok) {
-    throw new PrintBridgeError(
-      'DOWNLOAD_FAILED',
-      `Failed to download HTML file: HTTP ${response.status}.`,
-    );
-  }
-
-  return response.text();
-}
-
-/** 从 ID 或元素实例解析要打印的 DOM 元素。 */
-function resolvePrintableElement(printable: string | HTMLElement): HTMLElement {
-  if (typeof printable !== 'string') {
-    return printable;
-  }
-
-  const documentRef = getDocument();
-  const element = documentRef.getElementById(printable);
-  if (!element) {
-    throw new PrintBridgeError(
-      'INVALID_MESSAGE',
-      `printable element "${printable}" was not found.`,
-    );
-  }
-
-  return element;
-}
-
-/** 从 HTML 打印任务中提取渲染配置。 */
-function htmlRenderOptions(
-  job: PrintBridgeHtmlConfiguration & { paper?: PrintBridgePaper },
-): PrintBridgeHtmlRenderOptions {
-  return {
-    ...(job.header === undefined ? {} : { header: job.header }),
-    ...(job.headerStyle === undefined ? {} : { headerStyle: job.headerStyle }),
-    ...(job.maxWidth === undefined ? {} : { maxWidth: job.maxWidth }),
-    ...(job.css === undefined ? {} : { css: job.css }),
-    ...(job.style === undefined ? {} : { style: job.style }),
-    ...(job.ignoreElements === undefined ? {} : { ignoreElements: job.ignoreElements }),
-    ...(job.documentTitle === undefined ? {} : { documentTitle: job.documentTitle }),
-    ...(job.html2pdfOptions === undefined ? {} : { html2pdfOptions: job.html2pdfOptions }),
-    ...(job.paper === undefined ? {} : { paper: job.paper }),
-  };
-}
-
-/** 默认浏览器实现：把 HTML 暂挂到页面外，再交给 html2pdf.js 生成 PDF data URL。 */
-async function defaultHtmlToPdf(
-  html: string,
-  options: PrintBridgeHtmlRenderOptions,
-): Promise<string> {
-  const documentRef = getDocument();
-  const container = documentRef.createElement('div');
-  const cleanupNodes: Array<HTMLElement | HTMLLinkElement | HTMLStyleElement> = [container];
-
-  container.style.position = 'fixed';
-  container.style.left = '-10000px';
-  container.style.top = '0';
-  container.style.backgroundColor = '#fff';
-  if (options.maxWidth !== undefined) {
-    container.style.width = `${options.maxWidth}px`;
-  }
-
-  if (options.header) {
-    const header = documentRef.createElement('div');
-    header.innerHTML = options.header;
-    header.setAttribute('style', options.headerStyle ?? 'font-weight: 300;');
-    container.appendChild(header);
-  }
-
-  const content = documentRef.createElement('div');
-  content.innerHTML = html;
-  removeIgnoredElements(content, options.ignoreElements ?? []);
-  container.appendChild(content);
-
-  try {
-    await appendCss(documentRef, options.css, cleanupNodes);
-    appendStyle(documentRef, options.style, cleanupNodes);
-    documentRef.body.appendChild(container);
-
-    const html2pdf = await loadHtml2Pdf();
-    const output = await html2pdf()
-      .set(html2PdfOptions(options))
-      .from(container)
-      .outputPdf('datauristring');
-
-    if (!isPdfDataUrl(output)) {
-      throw new PrintBridgeError('INVALID_MESSAGE', 'html2pdf.js did not return a PDF data URL.');
-    }
-
-    return output;
-  } finally {
-    for (const node of cleanupNodes) {
-      node.parentNode?.removeChild(node);
-    }
-  }
-}
-
-/** 获取浏览器 document；Node 环境应通过 htmlToPdf 注入转换器。 */
-function getDocument(): Document {
-  if (typeof document === 'undefined') {
-    throw new PrintBridgeError('INVALID_MESSAGE', 'HTML printing requires a browser document.');
-  }
-
-  return document;
-}
-
-/** 从暂存内容里移除调用方要求忽略的元素 ID。 */
-function removeIgnoredElements(root: HTMLElement, ids: string[]): void {
-  for (const id of ids) {
-    root.querySelector(`#${cssEscape(id)}`)?.remove();
-  }
-}
-
-/** 兼容没有 CSS.escape 的运行环境。 */
-function cssEscape(value: string): string {
-  if (globalThis.CSS?.escape) {
-    return globalThis.CSS.escape(value);
-  }
-
-  return value.replace(/["\\#.:,[\]>+~*^$|=]/g, '\\$&');
-}
-
-/** 把外部 CSS 文件挂到当前文档 head，并等待加载完成。 */
-async function appendCss(
-  documentRef: Document,
-  css: string | string[] | undefined,
-  cleanupNodes: Array<HTMLElement | HTMLLinkElement | HTMLStyleElement>,
-): Promise<void> {
-  if (!css) {
-    return;
-  }
-
-  const hrefs = Array.isArray(css) ? css : [css];
-  await Promise.all(
-    hrefs.map(
-      href =>
-        new Promise<void>((resolve, reject) => {
-          const link = documentRef.createElement('link');
-          link.rel = 'stylesheet';
-          link.href = href;
-          link.onload = () => resolve();
-          link.onerror = () =>
-            reject(new PrintBridgeError('INVALID_MESSAGE', `Failed to load CSS: ${href}`));
-          cleanupNodes.push(link);
-          documentRef.head.appendChild(link);
-        }),
-    ),
-  );
-}
-
-/** 把调用方传入的内联 CSS 临时挂到当前文档 head。 */
-function appendStyle(
-  documentRef: Document,
-  style: string | undefined,
-  cleanupNodes: Array<HTMLElement | HTMLLinkElement | HTMLStyleElement>,
-): void {
-  if (!style) {
-    return;
-  }
-
-  const styleElement = documentRef.createElement('style');
-  styleElement.textContent = style;
-  cleanupNodes.push(styleElement);
-  documentRef.head.appendChild(styleElement);
-}
-
-/** 生成传给 html2pdf.js 的选项，纸张尺寸默认跟 Agent 打印纸张对齐。 */
-function html2PdfOptions(options: PrintBridgeHtmlRenderOptions): Record<string, unknown> {
-  const baseOptions: Record<string, unknown> = {
-    filename: `${options.documentTitle ?? 'Document'}.pdf`,
-    html2canvas: {
-      scale: 2,
-      useCORS: true,
-    },
-  };
-
-  if (options.paper) {
-    baseOptions.jsPDF = {
-      unit: 'mm',
-      format: [options.paper.widthMm, options.paper.heightMm],
-      orientation: options.paper.widthMm > options.paper.heightMm ? 'landscape' : 'portrait',
-    };
-  }
-
-  return mergeHtml2PdfOptions(baseOptions, options.html2pdfOptions ?? {});
-}
-
-/** 合并 html2pdf.js 选项，并保留默认 html2canvas/jsPDF 设置。 */
-function mergeHtml2PdfOptions(
-  baseOptions: Record<string, unknown>,
-  overrideOptions: Record<string, unknown>,
-): Record<string, unknown> {
-  return {
-    ...baseOptions,
-    ...overrideOptions,
-    html2canvas: {
-      ...(isPlainObject(baseOptions.html2canvas) ? baseOptions.html2canvas : {}),
-      ...(isPlainObject(overrideOptions.html2canvas) ? overrideOptions.html2canvas : {}),
-    },
-    jsPDF: {
-      ...(isPlainObject(baseOptions.jsPDF) ? baseOptions.jsPDF : {}),
-      ...(isPlainObject(overrideOptions.jsPDF) ? overrideOptions.jsPDF : {}),
-    },
-  };
-}
-
-/** 判断未知值是否可作为配置对象展开。 */
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-/** 按需读取或加载浏览器侧 HTML 转 PDF 函数。 */
-async function loadHtml2Pdf(): Promise<Html2PdfFactory> {
-  const existing = getGlobalHtml2Pdf();
-  if (existing) {
-    return existing;
-  }
-
-  html2pdfLoadPromise ??= loadHtml2PdfFromCdn();
-  return html2pdfLoadPromise;
-}
-
-/** 通过 CDN 加载 html2pdf.js，并返回挂到全局对象上的函数。 */
-async function loadHtml2PdfFromCdn(): Promise<Html2PdfFactory> {
-  await loadScript(HTML2PDF_CDN_URL);
-  const html2pdf = getGlobalHtml2Pdf();
-  if (!html2pdf) {
-    html2pdfLoadPromise = null;
-    throw new PrintBridgeError('INVALID_MESSAGE', 'html2pdf.js is not available.');
-  }
-
-  return html2pdf;
-}
-
-/** 动态加载浏览器脚本，并在加载失败时转换为 SDK 错误。 */
-function loadScript(src: string): Promise<HTMLScriptElement> {
-  const documentRef = getDocument();
-
-  return new Promise((resolve, reject) => {
-    const script = documentRef.createElement('script');
-    script.async = true;
-    script.src = src;
-
-    script.onload = () => {
-      script.onload = null;
-      script.onerror = null;
-      resolve(script);
-    };
-    script.onerror = () => {
-      script.onload = null;
-      script.onerror = null;
-      script.parentNode?.removeChild(script);
-      reject(new PrintBridgeError('INVALID_MESSAGE', `Failed to load script: ${src}`));
-    };
-
-    documentRef.head.appendChild(script);
-  });
-}
-
-/** 读取页面上已存在的 html2pdf 全局函数。 */
-function getGlobalHtml2Pdf(): Html2PdfFactory | null {
-  const html2pdf = (globalThis as typeof globalThis & { html2pdf?: unknown }).html2pdf;
-  return typeof html2pdf === 'function' ? (html2pdf as Html2PdfFactory) : null;
 }

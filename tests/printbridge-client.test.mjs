@@ -207,168 +207,40 @@ test('accepts pdf data URLs as print fileUrl', async () => {
   });
 });
 
-test('converts raw HTML print jobs to a pdf data URL before printing', async () => {
-  const generatedFileUrl = 'data:application/pdf;base64,JVBERi0xLjcKJSVFT0Y=';
-  const conversions = [];
-  const { client, socket } = await connectClient({
-    htmlToPdf: async (html, options) => {
-      conversions.push({ html, options });
-      return generatedFileUrl;
-    },
-  });
+test('rejects HTML print jobs because browser-side HTML rendering is not supported', async () => {
+  const { client, socket } = await connectClient();
 
-  const accepted = client.print({
-    requestId: 'REQ-HTML-001',
-    jobId: 'JOB-HTML-001',
-    type: 'html-raw',
-    html: '<section><h1>Label</h1><button id="skip">Skip</button></section>',
-    header: '<strong>Header</strong>',
-    headerStyle: 'font-weight: 700;',
-    style: 'h1 { color: red; }',
-    css: ['https://example.com/print.css'],
-    ignoreElements: ['skip'],
-    maxWidth: 600,
-    documentTitle: 'Label',
-    copies: 2,
-    paper: {
-      widthMm: 60,
-      heightMm: 40,
-    },
-    html2pdfOptions: {
-      margin: 0,
-    },
-  });
-
-  await Promise.resolve();
-  await Promise.resolve();
-
-  expect(conversions).toEqual([
-    {
-      html: '<section><h1>Label</h1><button id="skip">Skip</button></section>',
-      options: {
-        header: '<strong>Header</strong>',
-        headerStyle: 'font-weight: 700;',
-        style: 'h1 { color: red; }',
-        css: ['https://example.com/print.css'],
-        ignoreElements: ['skip'],
-        maxWidth: 600,
-        documentTitle: 'Label',
-        paper: {
-          widthMm: 60,
-          heightMm: 40,
-        },
-        html2pdfOptions: {
-          margin: 0,
-        },
-      },
-    },
-  ]);
-
-  expect(socket.sent.at(-1)).toEqual({
-    type: 'print',
-    request_id: 'REQ-HTML-001',
-    job_id: 'JOB-HTML-001',
-    format: 'pdf',
-    file_url: generatedFileUrl,
-    copies: 2,
-    paper: {
-      width_mm: 60,
-      height_mm: 40,
-    },
-  });
-
-  socket.message({
-    type: 'job_status',
-    request_id: 'REQ-HTML-001',
-    job_id: 'JOB-HTML-001',
-    status: 'queued',
-  });
-
-  await expect(accepted).resolves.toMatchObject({
-    requestId: 'REQ-HTML-001',
-    jobId: 'JOB-HTML-001',
-    status: 'queued',
-  });
-});
-
-test('downloads HTML URL jobs before converting them to a pdf data URL', async () => {
-  const originalFetch = globalThis.fetch;
-  const generatedFileUrl = 'data:application/pdf;base64,JVBERi0xLjcKJSVFT0Y=';
-  const conversions = [];
-  const fetchCalls = [];
-
-  globalThis.fetch = async url => {
-    fetchCalls.push(url);
-    return {
-      ok: true,
-      status: 200,
-      text: async () => '<main><h1>Remote label</h1></main>',
-    };
-  };
-
-  try {
-    const { client, socket } = await connectClient({
-      htmlToPdf: async (html, options) => {
-        conversions.push({ html, options });
-        return generatedFileUrl;
-      },
-    });
-
-    const accepted = client.print({
+  await expect(
+    client.print({
       requestId: 'REQ-HTML-URL-001',
       jobId: 'JOB-HTML-URL-001',
       type: 'html',
       fileUrl: 'https://test.com/label.html',
-      copies: 1,
-      paper: {
-        widthMm: 210,
-        heightMm: 297,
-      },
-    });
+    }),
+  ).rejects.toMatchObject({
+    code: 'UNSUPPORTED_FORMAT',
+    message: 'type is unsupported.',
+  });
 
-    await new Promise(resolve => setTimeout(resolve, 0));
+  expect(socket.sent).toHaveLength(0);
+});
 
-    expect(fetchCalls).toEqual(['https://test.com/label.html']);
-    expect(conversions).toEqual([
-      {
-        html: '<main><h1>Remote label</h1></main>',
-        options: {
-          paper: {
-            widthMm: 210,
-            heightMm: 297,
-          },
-        },
-      },
-    ]);
+test('rejects raw HTML print jobs because browser-side HTML rendering is not supported', async () => {
+  const { client, socket } = await connectClient();
 
-    expect(socket.sent.at(-1)).toEqual({
-      type: 'print',
-      request_id: 'REQ-HTML-URL-001',
-      job_id: 'JOB-HTML-URL-001',
-      format: 'pdf',
-      file_url: generatedFileUrl,
-      copies: 1,
-      paper: {
-        width_mm: 210,
-        height_mm: 297,
-      },
-    });
+  await expect(
+    client.print({
+      requestId: 'REQ-HTML-RAW-001',
+      jobId: 'JOB-HTML-RAW-001',
+      type: 'html-raw',
+      html: '<section><h1>Label</h1></section>',
+    }),
+  ).rejects.toMatchObject({
+    code: 'UNSUPPORTED_FORMAT',
+    message: 'type is unsupported.',
+  });
 
-    socket.message({
-      type: 'job_status',
-      request_id: 'REQ-HTML-URL-001',
-      job_id: 'JOB-HTML-URL-001',
-      status: 'queued',
-    });
-
-    await expect(accepted).resolves.toMatchObject({
-      requestId: 'REQ-HTML-URL-001',
-      jobId: 'JOB-HTML-URL-001',
-      status: 'queued',
-    });
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  expect(socket.sent).toHaveLength(0);
 });
 
 test('emits status events for job_status messages', async () => {
