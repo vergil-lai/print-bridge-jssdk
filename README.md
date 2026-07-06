@@ -291,7 +291,7 @@ const client = new PrintBridgeClient({
 
 ## 服务兼容性
 
-当前公开的 PrintBridge V1 WebSocket 主路径支持：
+当前公开的 PrintBridge WebSocket 主路径支持：
 
 - `ping`
 - `print`
@@ -303,7 +303,7 @@ SDK 源码中保留了 `getPrintersList()`、`getPrinterInfo()` 和 `getPrintQue
 
 ## 安全边界
 
-PrintBridge 的 V1 安全模型依赖本地服务的 Origin 白名单。SDK 不能伪造、覆盖或自行校验浏览器 Origin。
+PrintBridge 安全模型依赖本地服务的 Origin 白名单。SDK 不能伪造、覆盖或自行校验浏览器 Origin。
 
 如果浏览器连接被拒绝，请到用户本机 PrintBridge 设置中加入业务系统 Origin，例如：
 
