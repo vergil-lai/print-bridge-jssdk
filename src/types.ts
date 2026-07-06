@@ -8,8 +8,10 @@ export type PrintBridgeJobStatus =
   | 'queued'
   | 'downloading'
   | 'printing'
-  | 'success'
+  | 'submitted'
+  | 'completed'
   | 'failed'
+  | 'unknown'
   | 'cancelled';
 
 /** 暴露给 SDK 调用方的稳定协议和客户端错误码。 */

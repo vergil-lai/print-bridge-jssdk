@@ -680,16 +680,58 @@ test('supports ws-style event API', async () => {
     type: 'job_status',
     request_id: 'REQ-006',
     job_id: 'JOB-006',
-    status: 'success',
-    message: 'submitted',
+    status: 'submitted',
+    message: 'submitted to system print queue',
   });
 
   expect(statuses).toEqual([
     {
       requestId: 'REQ-006',
       jobId: 'JOB-006',
-      status: 'success',
-      message: 'submitted',
+      status: 'submitted',
+      message: 'submitted to system print queue',
     },
   ]);
+});
+
+test('emits completed status events', async () => {
+  const { client, socket } = await connectClient();
+  const events = [];
+  client.on('status', event => events.push(event));
+
+  socket.message({
+    type: 'job_status',
+    request_id: 'REQ-001',
+    job_id: 'JOB-001',
+    status: 'completed',
+    message: 'system queue completed',
+  });
+
+  expect(events.at(-1)).toEqual({
+    requestId: 'REQ-001',
+    jobId: 'JOB-001',
+    status: 'completed',
+    message: 'system queue completed',
+  });
+});
+
+test('emits unknown status events', async () => {
+  const { client, socket } = await connectClient();
+  const events = [];
+  client.on('status', event => events.push(event));
+
+  socket.message({
+    type: 'job_status',
+    request_id: 'REQ-001',
+    job_id: 'JOB-001',
+    status: 'unknown',
+    message: 'platform did not expose a job id',
+  });
+
+  expect(events.at(-1)).toEqual({
+    requestId: 'REQ-001',
+    jobId: 'JOB-001',
+    status: 'unknown',
+    message: 'platform did not expose a job id',
+  });
 });

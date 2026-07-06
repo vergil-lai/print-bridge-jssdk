@@ -229,12 +229,16 @@ const offError = client.on("error", (error) => {
 queued
 downloading
 printing
-success
+submitted
+completed
 failed
+unknown
 cancelled
 ```
 
-`success` 只表示任务已提交到系统打印队列，不代表打印机已经真实完成出纸。
+`submitted` 表示任务已提交到系统打印队列，不代表打印机已经真实完成出纸。
+`completed` 表示系统或驱动层面观察到任务结束，也不等同于物理出纸确认。
+`unknown` 表示平台不可追踪、追踪超时，或无法可靠判断后续状态。
 
 ## 错误处理
 
