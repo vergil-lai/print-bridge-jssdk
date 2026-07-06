@@ -22,6 +22,8 @@
   "scripts": {
     "prepare": "husky",
     "prepack": "pnpm build",
+    "release": "node scripts/release.mjs",
+    "release:sdk": "node scripts/release.mjs sdk",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint src tests rollup.config.js",
     "lint:fix": "oxlint --fix src tests rollup.config.js",
