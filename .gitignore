@@ -3,7 +3,7 @@ dist/
 examples/dist/
 AGENTS.md
 CLAUDE.md
-.DS_Store
+.codegraph
 # Editor directories and files
 .vscode/*
 .idea
