@@ -40,6 +40,7 @@ console.log(pong.time);
 
 await client.print({
   type: "pdf",
+  printerName: "Office Printer",
   fileUrl: "https://example.com/label.pdf",
   copies: 1,
   paper: {
@@ -79,6 +80,7 @@ const accepted = await client.print({
   requestId: "REQ-001",
   jobId: "JOB-001",
   type: "pdf",
+  printerName: "Office Printer",
   fileUrl: "https://example.com/label.pdf",
   copies: 1,
   paper: {
@@ -100,9 +102,21 @@ await client.print({
 });
 ```
 
+打印 raw commands：
+
+```ts
+await client.print({
+  type: "raw",
+  printerName: "Zebra ZD421",
+  dataBase64: "XlhB...",
+});
+```
+
+SDK 只负责把 raw payload 发送给本机 Agent，不生成、解析或校验 ESC/POS、ZPL、EPL、PCL、PostScript 指令。raw 任务不支持 `fileUrl`、`paper`、`copies`。
+
 SDK 输入使用 camelCase，发送给本地服务时会转换为 snake_case。`requestId` 和 `jobId` 可以省略，SDK 会自动生成 UUID v4。
 
-`paper` 可以省略。省略时由本地服务使用设置中的默认纸张。
+`printerName` 可以省略。省略时由本地服务使用设置中的默认打印机。`paper` 可以省略。省略时由本地服务使用设置中的默认纸张。
 
 ## 批量打印
 
@@ -119,15 +133,15 @@ await client.printBatch({
     },
     {
       jobId: "B-001",
-      type: "image",
-      fileUrl: "https://example.com/b.jpg",
-      copies: 1,
+      type: "raw",
+      printerName: "Zebra ZD421",
+      dataBase64: "XlhB...",
     },
   ],
 });
 ```
 
-批量打印表示一次下发多个 job。本地服务仍然会串行执行，避免同一台打印机并发抢占。
+批量打印表示一次下发多个 job。本地服务仍然会串行执行，避免同一台打印机并发抢占。批量任务可以混合 PDF、image 和 raw。
 
 `requestId`、`batchId` 和每个 job 的 `jobId` 都可以省略，SDK 会自动生成。
 
@@ -195,17 +209,19 @@ try {
 - `PRINTER_NOT_CONFIGURED`：PrintBridge 未配置默认打印机
 - `PAPER_NOT_CONFIGURED`：任务未传纸张，PrintBridge 也没有默认纸张
 - `DOWNLOAD_FAILED`：本地服务无法下载文件
-- `FILE_TOO_LARGE`：文件超过本地服务配置限制
+- `FILE_TOO_LARGE`：文件或 raw bytes 超过本地服务配置限制
 - `FORMAT_MISMATCH`：声明格式与文件内容不匹配
 - `PRINT_FAILED`：系统打印命令失败
 
 SDK 会在发送前做基础校验：
 
-- `type` 只能是 `pdf`、`image`
+- `type` 只能是 `pdf`、`image`、`raw`
 - `pdf` 和 `image` 的 `fileUrl` 必须是 HTTP(S) URL
 - `pdf` 额外接受 `data:application/pdf;base64,...`
-- `copies` 必须是正整数
-- `paper.widthMm` 和 `paper.heightMm` 必须大于 0
+- `raw` 必须提供 `dataBase64`
+- `raw` 不接受 `fileUrl`、`copies`、`paper`
+- 文件类任务的 `copies` 必须是正整数
+- 文件类任务的 `paper.widthMm` 和 `paper.heightMm` 必须大于 0
 
 ## Node.js 和测试环境
 

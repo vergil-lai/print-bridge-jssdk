@@ -148,6 +148,95 @@ test('serializes print jobs from camelCase to snake_case', async () => {
   });
 });
 
+test('serializes raw print jobs with dataBase64 and printerName', async () => {
+  const { client, socket } = await connectClient();
+
+  const accepted = client.print({
+    requestId: 'REQ-RAW-001',
+    jobId: 'JOB-RAW-001',
+    type: 'raw',
+    printerName: 'Zebra ZD421',
+    dataBase64: 'XlhB',
+  });
+
+  expect(socket.sent.at(-1)).toEqual({
+    type: 'print',
+    request_id: 'REQ-RAW-001',
+    job_id: 'JOB-RAW-001',
+    format: 'raw',
+    printer_name: 'Zebra ZD421',
+    data_base64: 'XlhB',
+  });
+
+  socket.message({
+    type: 'job_status',
+    request_id: 'REQ-RAW-001',
+    job_id: 'JOB-RAW-001',
+    status: 'queued',
+  });
+
+  await expect(accepted).resolves.toMatchObject({
+    requestId: 'REQ-RAW-001',
+    jobId: 'JOB-RAW-001',
+    status: 'queued',
+  });
+});
+
+test('serializes printerName for pdf jobs', async () => {
+  const { client, socket } = await connectClient();
+
+  const accepted = client.print({
+    requestId: 'REQ-PDF-PRINTER',
+    jobId: 'JOB-PDF-PRINTER',
+    type: 'pdf',
+    printerName: 'Office Printer',
+    fileUrl: 'https://test.com/label.pdf',
+  });
+
+  expect(socket.sent.at(-1)).toMatchObject({
+    printer_name: 'Office Printer',
+  });
+
+  socket.message({
+    type: 'job_status',
+    request_id: 'REQ-PDF-PRINTER',
+    job_id: 'JOB-PDF-PRINTER',
+    status: 'queued',
+  });
+
+  await expect(accepted).resolves.toMatchObject({ status: 'queued' });
+});
+
+test('rejects raw jobs with fileUrl paper or copies', async () => {
+  const { client, socket } = await connectClient();
+
+  await expect(
+    client.print({
+      type: 'raw',
+      dataBase64: 'XlhB',
+      fileUrl: 'https://test.com/raw.bin',
+    }),
+  ).rejects.toMatchObject({ code: 'INVALID_MESSAGE' });
+
+  await expect(
+    client.print({
+      type: 'raw',
+      dataBase64: 'XlhB',
+      copies: 2,
+    }),
+  ).rejects.toMatchObject({ code: 'INVALID_MESSAGE' });
+
+  await expect(
+    client.print({
+      type: 'raw',
+      dataBase64: 'XlhB',
+      paper: { widthMm: 60, heightMm: 40 },
+    }),
+  ).rejects.toMatchObject({ code: 'INVALID_MESSAGE' });
+
+  expect(socket.sent).toHaveLength(0);
+});
+
 test('generates requestId and jobId for print jobs when omitted', async () => {
   const { client, socket } = await connectClient();
 

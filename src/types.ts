@@ -1,7 +1,7 @@
 import type { PrintBridgeError } from './index';
 
 /** SDK 对调用方暴露的打印内容类型。 */
-export type PrintBridgeJobType = 'pdf' | 'image';
+export type PrintBridgeJobType = 'pdf' | 'image' | 'raw';
 
 /** 任务流经本地打印队列时发出的生命周期状态。 */
 export type PrintBridgeJobStatus =
@@ -46,24 +46,38 @@ export interface PrintBridgePaper {
 /** 单任务和批量请求共用的基础字段。 */
 export interface PrintBridgeJobBase {
   jobId?: string;
+  printerName?: string;
+}
+
+/** 文件类任务支持的额外打印参数。 */
+export interface PrintBridgeFileJobBase extends PrintBridgeJobBase {
   copies?: number;
   paper?: PrintBridgePaper;
 }
 
 /** 打印 PDF 文件或 SDK 生成的 PDF data URL。 */
-export interface PrintBridgePdfJob extends PrintBridgeJobBase {
+export interface PrintBridgePdfJob extends PrintBridgeFileJobBase {
   type: 'pdf';
   fileUrl: string;
 }
 
 /** 打印图片文件，Agent 会按文件内容识别 PNG/JPEG。 */
-export interface PrintBridgeImageJob extends PrintBridgeJobBase {
+export interface PrintBridgeImageJob extends PrintBridgeFileJobBase {
   type: 'image';
   fileUrl: string;
 }
 
+/** 打印调用方已经生成的原始打印指令。 */
+export interface PrintBridgeRawJob extends PrintBridgeJobBase {
+  type: 'raw';
+  dataBase64: string;
+  fileUrl?: never;
+  copies?: never;
+  paper?: never;
+}
+
 /** 单任务和批量请求共用的打印任务载荷。 */
-export type PrintBridgeJob = PrintBridgePdfJob | PrintBridgeImageJob;
+export type PrintBridgeJob = PrintBridgePdfJob | PrintBridgeImageJob | PrintBridgeRawJob;
 
 /** 投递单个打印任务的选项。 */
 export type PrintBridgePrintOptions = PrintBridgeJob & {

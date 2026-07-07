@@ -30,14 +30,16 @@ const DEFAULT_HEARTBEAT_INTERVAL_MS = 15000;
 const DEFAULT_HEARTBEAT_FAILURE_THRESHOLD = 3;
 const DEFAULT_CONNECT_TIMEOUT_MS = 3000;
 const DEFAULT_REQUEST_TIMEOUT_MS = 3000;
-const VALID_JOB_TYPES = new Set<PrintBridgeJobType>(['pdf', 'image']);
+const VALID_JOB_TYPES = new Set<PrintBridgeJobType>(['pdf', 'image', 'raw']);
 
-type AgentPrintableType = 'pdf' | 'image';
+type AgentPrintableType = 'pdf' | 'image' | 'raw';
 
 interface AgentPrintableJob {
   jobId: string;
   type: AgentPrintableType;
-  fileUrl: string;
+  printerName?: string;
+  fileUrl?: string;
+  dataBase64?: string;
   copies?: number;
   paper?: PrintBridgePaper;
 }
@@ -261,7 +263,7 @@ export class PrintBridgeClient {
     this.assertConnected();
     validatePrintOptions(job);
     const requestId = job.requestId ?? createUuid();
-    const printableJob = fileJobToAgentJob(withJobId(job));
+    const printableJob = jobToAgentJob(withJobId(job));
 
     return this.createPending(this.pendingRequests, requestId, 'Print request timed out.', () => {
       this.socket?.send(
@@ -281,7 +283,7 @@ export class PrintBridgeClient {
     validateBatchOptions(batch);
     const requestId = batch.requestId ?? createUuid();
     const batchId = batch.batchId ?? createUuid();
-    const printableJobs = batch.jobs.map(job => fileJobToAgentJob(withJobId(job)));
+    const printableJobs = batch.jobs.map(job => jobToAgentJob(withJobId(job)));
 
     return this.createPending(
       this.pendingRequests,
@@ -617,13 +619,21 @@ export class PrintBridgeClient {
   }
 }
 
-/** 把 SDK 文件任务转换为 Agent 文件任务。 */
-function fileJobToAgentJob(
-  job: Extract<ResolvedPrintBridgeJob, { type: 'pdf' | 'image' }>,
-): AgentPrintableJob {
+/** 把 SDK 任务转换为 Agent 协议任务。 */
+function jobToAgentJob(job: ResolvedPrintBridgeJob): AgentPrintableJob {
+  if (job.type === 'raw') {
+    return {
+      jobId: job.jobId,
+      type: job.type,
+      printerName: job.printerName,
+      dataBase64: job.dataBase64,
+    };
+  }
+
   return {
     jobId: job.jobId,
     type: job.type,
+    printerName: job.printerName,
     fileUrl: job.fileUrl,
     copies: job.copies,
     paper: job.paper,
@@ -706,7 +716,9 @@ function serializePrint(job: AgentPrintOptions): Record<string, unknown> {
     request_id: job.requestId,
     job_id: job.jobId,
     format: job.type,
-    file_url: job.fileUrl,
+    ...(job.printerName === undefined ? {} : { printer_name: job.printerName }),
+    ...(job.fileUrl === undefined ? {} : { file_url: job.fileUrl }),
+    ...(job.dataBase64 === undefined ? {} : { data_base64: job.dataBase64 }),
     ...(job.copies === undefined ? {} : { copies: job.copies }),
     ...(job.paper === undefined ? {} : { paper: serializePaper(job.paper) }),
   };
@@ -721,7 +733,9 @@ function serializeBatch(batch: AgentBatchOptions): Record<string, unknown> {
     jobs: batch.jobs.map(job => ({
       job_id: job.jobId,
       format: job.type,
-      file_url: job.fileUrl,
+      ...(job.printerName === undefined ? {} : { printer_name: job.printerName }),
+      ...(job.fileUrl === undefined ? {} : { file_url: job.fileUrl }),
+      ...(job.dataBase64 === undefined ? {} : { data_base64: job.dataBase64 }),
       ...(job.copies === undefined ? {} : { copies: job.copies }),
       ...(job.paper === undefined ? {} : { paper: serializePaper(job.paper) }),
     })),
@@ -756,6 +770,26 @@ function validatePrintOptions(job: PrintBridgePrintOptions): void {
 function validateJob(job: PrintBridgeJob): void {
   if (!VALID_JOB_TYPES.has(job.type)) {
     throw new PrintBridgeError('UNSUPPORTED_FORMAT', 'type is unsupported.');
+  }
+
+  if (job.type === 'raw') {
+    if (!job.dataBase64 || job.dataBase64.trim().length === 0) {
+      throw new PrintBridgeError('INVALID_MESSAGE', 'dataBase64 is required.');
+    }
+
+    if ('fileUrl' in job && job.fileUrl !== undefined) {
+      throw new PrintBridgeError('INVALID_MESSAGE', 'raw jobs do not accept fileUrl.');
+    }
+
+    if ('copies' in job && job.copies !== undefined) {
+      throw new PrintBridgeError('INVALID_MESSAGE', 'raw jobs do not accept copies.');
+    }
+
+    if ('paper' in job && job.paper !== undefined) {
+      throw new PrintBridgeError('INVALID_MESSAGE', 'raw jobs do not accept paper.');
+    }
+
+    return;
   }
 
   if (job.type === 'pdf' || job.type === 'image') {
