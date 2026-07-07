@@ -539,6 +539,11 @@ test('gets printers list over WebSocket', async () => {
       {
         name: 'Zebra ZD421',
         is_default: true,
+        dpi: 203,
+        port: 'usb://Zebra/ZD421',
+        is_local: true,
+        is_network: false,
+        is_virtual: false,
       },
     ],
   });
@@ -547,6 +552,11 @@ test('gets printers list over WebSocket', async () => {
     {
       name: 'Zebra ZD421',
       isDefault: true,
+      dpi: 203,
+      port: 'usb://Zebra/ZD421',
+      isLocal: true,
+      isNetwork: false,
+      isVirtual: false,
     },
   ]);
 });
@@ -568,11 +578,29 @@ test('gets printer info over WebSocket', async () => {
     printer: {
       name: 'Zebra ZD421',
       is_default: true,
+      dpi: 203,
+      port: 'usb://Zebra/ZD421',
+      is_local: true,
+      is_network: false,
+      is_virtual: false,
       papers: [
         {
+          id: 'label_60x40',
           name: '60x40',
           width_mm: 60,
           height_mm: 40,
+        },
+      ],
+      trays: [
+        {
+          id: 'tray-1',
+          name: 'Tray 1',
+        },
+      ],
+      media_types: [
+        {
+          id: 'thermal-label',
+          name: 'Thermal Label',
         },
       ],
     },
@@ -581,11 +609,29 @@ test('gets printer info over WebSocket', async () => {
   await expect(pending).resolves.toEqual({
     name: 'Zebra ZD421',
     isDefault: true,
+    dpi: 203,
+    port: 'usb://Zebra/ZD421',
+    isLocal: true,
+    isNetwork: false,
+    isVirtual: false,
     papers: [
       {
+        id: 'label_60x40',
         name: '60x40',
         widthMm: 60,
         heightMm: 40,
+      },
+    ],
+    trays: [
+      {
+        id: 'tray-1',
+        name: 'Tray 1',
+      },
+    ],
+    mediaTypes: [
+      {
+        id: 'thermal-label',
+        name: 'Thermal Label',
       },
     ],
   });

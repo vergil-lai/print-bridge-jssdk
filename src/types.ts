@@ -109,16 +109,36 @@ export interface PrintBridgeAccepted {
 export interface PrintBridgePrinter {
   name: string;
   isDefault?: boolean;
+  dpi?: number | null;
+  port?: string | null;
+  isLocal?: boolean | null;
+  isNetwork?: boolean | null;
+  isVirtual?: boolean | null;
 }
 
 /** Agent 返回的打印机纸张信息。 */
 export interface PrintBridgePrinterPaper extends PrintBridgePaper {
+  id?: string;
   name?: string;
+}
+
+/** Agent 返回的纸盒或进纸来源信息。 */
+export interface PrintBridgePrinterTray {
+  id: string;
+  name: string;
+}
+
+/** Agent 返回的介质类型信息。 */
+export interface PrintBridgePrinterMediaType {
+  id: string;
+  name: string;
 }
 
 /** 单台打印机的详细信息。 */
 export interface PrintBridgePrinterInfo extends PrintBridgePrinter {
   papers: PrintBridgePrinterPaper[];
+  trays: PrintBridgePrinterTray[];
+  mediaTypes: PrintBridgePrinterMediaType[];
 }
 
 /** 本机 Agent 打印队列中的任务摘要。 */
@@ -253,18 +273,38 @@ export type AgentMessage =
 export interface AgentPrinter {
   name: string;
   is_default?: boolean;
+  dpi?: number | null;
+  port?: string | null;
+  is_local?: boolean | null;
+  is_network?: boolean | null;
+  is_virtual?: boolean | null;
 }
 
 /** Agent 返回的原始纸张字段。 */
 export interface AgentPrinterPaper {
+  id?: string;
   name?: string;
   width_mm: number;
   height_mm: number;
 }
 
+/** Agent 返回的原始纸盒字段。 */
+export interface AgentPrinterTray {
+  id: string;
+  name: string;
+}
+
+/** Agent 返回的原始介质类型字段。 */
+export interface AgentPrinterMediaType {
+  id: string;
+  name: string;
+}
+
 /** Agent 返回的原始打印机详情字段。 */
 export interface AgentPrinterInfo extends AgentPrinter {
   papers: AgentPrinterPaper[];
+  trays?: AgentPrinterTray[];
+  media_types?: AgentPrinterMediaType[];
 }
 
 /** Agent 返回的原始打印队列任务字段。 */

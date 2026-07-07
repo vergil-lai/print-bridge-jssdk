@@ -44,6 +44,29 @@ interface AgentPrintableJob {
   paper?: PrintBridgePaper;
 }
 
+function mapPrinter(printer: {
+  name: string;
+  is_default?: boolean;
+  dpi?: number | null;
+  port?: string | null;
+  is_local?: boolean | null;
+  is_network?: boolean | null;
+  is_virtual?: boolean | null;
+}): PrintBridgePrinter {
+  const mapped: PrintBridgePrinter = {
+    name: printer.name,
+    isDefault: printer.is_default,
+  };
+
+  if ('dpi' in printer) mapped.dpi = printer.dpi;
+  if ('port' in printer) mapped.port = printer.port;
+  if ('is_local' in printer) mapped.isLocal = printer.is_local;
+  if ('is_network' in printer) mapped.isNetwork = printer.is_network;
+  if ('is_virtual' in printer) mapped.isVirtual = printer.is_virtual;
+
+  return mapped;
+}
+
 interface AgentPrintOptions extends AgentPrintableJob {
   requestId: string;
 }
@@ -396,25 +419,21 @@ export class PrintBridgeClient {
     }
 
     if (message.type === 'printers_list') {
-      this.resolvePendingRequest(
-        message.request_id,
-        message.printers.map(printer => ({
-          name: printer.name,
-          isDefault: printer.is_default,
-        })),
-      );
+      this.resolvePendingRequest(message.request_id, message.printers.map(mapPrinter));
       return;
     }
 
     if (message.type === 'printer_info') {
       this.resolvePendingRequest(message.request_id, {
-        name: message.printer.name,
-        isDefault: message.printer.is_default,
+        ...mapPrinter(message.printer),
         papers: message.printer.papers.map(paper => ({
+          id: paper.id,
           name: paper.name,
           widthMm: paper.width_mm,
           heightMm: paper.height_mm,
         })),
+        trays: message.printer.trays ?? [],
+        mediaTypes: message.printer.media_types ?? [],
       });
       return;
     }
