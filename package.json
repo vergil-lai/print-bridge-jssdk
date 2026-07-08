@@ -33,7 +33,7 @@
     "build": "rollup -c --forceExit",
     "dev": "rollup -c -w",
     "pretest": "pnpm build",
-    "test": "vitest run"
+    "test": "vitest run tests && node --test scripts/*.test.mjs"
   },
   "keywords": [
     "printbridge",

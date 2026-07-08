@@ -182,6 +182,115 @@ test('serializes raw print jobs with dataBase64 and printerName', async () => {
   });
 });
 
+test('serializes office print jobs as file jobs', async () => {
+  const { client, socket } = await connectClient();
+
+  const accepted = client.print({
+    requestId: 'REQ-DOCX-001',
+    jobId: 'JOB-DOCX-001',
+    type: 'docx',
+    fileUrl: 'https://test.com/report.docx',
+    copies: 1,
+    paper: {
+      widthMm: 210,
+      heightMm: 297,
+    },
+  });
+
+  expect(socket.sent.at(-1)).toEqual({
+    type: 'print',
+    request_id: 'REQ-DOCX-001',
+    job_id: 'JOB-DOCX-001',
+    format: 'docx',
+    file_url: 'https://test.com/report.docx',
+    copies: 1,
+    paper: {
+      width_mm: 210,
+      height_mm: 297,
+    },
+  });
+
+  socket.message({
+    type: 'job_status',
+    request_id: 'REQ-DOCX-001',
+    job_id: 'JOB-DOCX-001',
+    status: 'queued',
+  });
+
+  await expect(accepted).resolves.toMatchObject({
+    requestId: 'REQ-DOCX-001',
+    jobId: 'JOB-DOCX-001',
+    status: 'queued',
+  });
+});
+
+test('serializes office batch jobs', async () => {
+  const { client, socket } = await connectClient();
+
+  const pending = client.printBatch({
+    requestId: 'REQ-OFFICE-BATCH',
+    batchId: 'BATCH-OFFICE-001',
+    jobs: [
+      {
+        jobId: 'XLSX-001',
+        type: 'xlsx',
+        fileUrl: 'https://test.com/report.xlsx',
+      },
+      {
+        jobId: 'PPTX-001',
+        type: 'pptx',
+        fileUrl: 'https://test.com/slides.pptx',
+      },
+    ],
+  });
+
+  expect(socket.sent.at(-1)).toEqual({
+    type: 'print_batch',
+    request_id: 'REQ-OFFICE-BATCH',
+    batch_id: 'BATCH-OFFICE-001',
+    jobs: [
+      {
+        job_id: 'XLSX-001',
+        format: 'xlsx',
+        file_url: 'https://test.com/report.xlsx',
+      },
+      {
+        job_id: 'PPTX-001',
+        format: 'pptx',
+        file_url: 'https://test.com/slides.pptx',
+      },
+    ],
+  });
+
+  socket.message({
+    type: 'job_status',
+    request_id: 'REQ-OFFICE-BATCH',
+    job_id: 'XLSX-001',
+    status: 'queued',
+  });
+
+  await expect(pending).resolves.toMatchObject({
+    requestId: 'REQ-OFFICE-BATCH',
+    jobId: 'XLSX-001',
+    status: 'queued',
+  });
+});
+
+test('rejects office data urls before sending', async () => {
+  const { client, socket } = await connectClient();
+
+  await expect(
+    client.print({
+      type: 'xlsx',
+      fileUrl: 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,AAAA',
+    }),
+  ).rejects.toMatchObject({
+    code: 'INVALID_MESSAGE',
+  });
+
+  expect(socket.sent).toHaveLength(0);
+});
+
 test('serializes printerName for pdf jobs', async () => {
   const { client, socket } = await connectClient();
 

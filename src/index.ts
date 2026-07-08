@@ -30,9 +30,16 @@ const DEFAULT_HEARTBEAT_INTERVAL_MS = 15000;
 const DEFAULT_HEARTBEAT_FAILURE_THRESHOLD = 3;
 const DEFAULT_CONNECT_TIMEOUT_MS = 3000;
 const DEFAULT_REQUEST_TIMEOUT_MS = 3000;
-const VALID_JOB_TYPES = new Set<PrintBridgeJobType>(['pdf', 'image', 'raw']);
+const VALID_JOB_TYPES = new Set<PrintBridgeJobType>([
+  'pdf',
+  'image',
+  'raw',
+  'docx',
+  'xlsx',
+  'pptx',
+]);
 
-type AgentPrintableType = 'pdf' | 'image' | 'raw';
+type AgentPrintableType = 'pdf' | 'image' | 'raw' | 'docx' | 'xlsx' | 'pptx';
 
 interface AgentPrintableJob {
   jobId: string;
@@ -811,7 +818,14 @@ function validateJob(job: PrintBridgeJob): void {
     return;
   }
 
-  if (job.type === 'pdf' || job.type === 'image') {
+  if (isOfficeJobType(job.type)) {
+    if (!isHttpUrl(job.fileUrl)) {
+      throw new PrintBridgeError(
+        'INVALID_MESSAGE',
+        'Office print jobs require an HTTP(S) fileUrl.',
+      );
+    }
+  } else if (job.type === 'pdf' || job.type === 'image') {
     if (!isPrintableFileUrl(job.fileUrl, job.type)) {
       throw new PrintBridgeError(
         'INVALID_MESSAGE',
@@ -833,6 +847,11 @@ function validateJob(job: PrintBridgeJob): void {
       throw new PrintBridgeError('PAPER_NOT_CONFIGURED', 'paper.heightMm must be greater than 0.');
     }
   }
+}
+
+/** 判断任务类型是否需要 Agent 做 Office 转 PDF。 */
+function isOfficeJobType(type: PrintBridgeJobType): type is 'docx' | 'xlsx' | 'pptx' {
+  return type === 'docx' || type === 'xlsx' || type === 'pptx';
 }
 
 /** 要求调用方提供的选项中该字符串字段不能为空。 */

@@ -1,7 +1,7 @@
 import type { PrintBridgeError } from './index';
 
 /** SDK 对调用方暴露的打印内容类型。 */
-export type PrintBridgeJobType = 'pdf' | 'image' | 'raw';
+export type PrintBridgeJobType = 'pdf' | 'image' | 'raw' | 'docx' | 'xlsx' | 'pptx';
 
 /** 任务流经本地打印队列时发出的生命周期状态。 */
 export type PrintBridgeJobStatus =
@@ -26,6 +26,7 @@ export type PrintBridgeErrorCode =
   | 'FILE_TOO_LARGE'
   | 'UNSUPPORTED_FORMAT'
   | 'FORMAT_MISMATCH'
+  | 'OFFICE_CONVERT_FAILED'
   | 'PRINT_FAILED'
   | 'JOB_DUPLICATED'
   | 'BATCH_DUPLICATED'
@@ -67,6 +68,12 @@ export interface PrintBridgeImageJob extends PrintBridgeFileJobBase {
   fileUrl: string;
 }
 
+/** 打印 Office 文件，Agent 会先转换为 PDF。 */
+export interface PrintBridgeOfficeJob extends PrintBridgeFileJobBase {
+  type: 'docx' | 'xlsx' | 'pptx';
+  fileUrl: string;
+}
+
 /** 打印调用方已经生成的原始打印指令。 */
 export interface PrintBridgeRawJob extends PrintBridgeJobBase {
   type: 'raw';
@@ -77,7 +84,11 @@ export interface PrintBridgeRawJob extends PrintBridgeJobBase {
 }
 
 /** 单任务和批量请求共用的打印任务载荷。 */
-export type PrintBridgeJob = PrintBridgePdfJob | PrintBridgeImageJob | PrintBridgeRawJob;
+export type PrintBridgeJob =
+  | PrintBridgePdfJob
+  | PrintBridgeImageJob
+  | PrintBridgeOfficeJob
+  | PrintBridgeRawJob;
 
 /** 投递单个打印任务的选项。 */
 export type PrintBridgePrintOptions = PrintBridgeJob & {
