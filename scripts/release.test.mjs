@@ -26,9 +26,9 @@ test('dry run prints SDK publish and tag commands', () => {
   const result = runRelease(['--', '--dry-run', '--skip-fetch']);
 
   assert.equal(result.status, 0);
-  assert.match(result.stdout, /Current package version: 0\.1\.1/);
-  assert.match(result.stdout, /Release tag: v0\.1\.1/);
+  assert.match(result.stdout, /Current package version: 0\.1\.2/);
+  assert.match(result.stdout, /Release tag: v0\.1\.2/);
   assert.match(result.stdout, /Command: npm publish/);
-  assert.match(result.stdout, /Command: git tag v0\.1\.1/);
+  assert.match(result.stdout, /Command: git tag v0\.1\.2/);
   assert.match(result.stdout, /Dry run only/);
 });
