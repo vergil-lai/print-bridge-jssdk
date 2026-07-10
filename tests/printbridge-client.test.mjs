@@ -405,38 +405,161 @@ test('accepts pdf data URLs as print fileUrl', async () => {
   });
 });
 
-test('rejects HTML print jobs because browser-side HTML rendering is not supported', async () => {
+test('serializes HTML print jobs for Agent rendering', async () => {
   const { client, socket } = await connectClient();
 
-  await expect(
-    client.print({
-      requestId: 'REQ-HTML-URL-001',
-      jobId: 'JOB-HTML-URL-001',
-      type: 'html',
-      fileUrl: 'https://test.com/label.html',
-    }),
-  ).rejects.toMatchObject({
-    code: 'UNSUPPORTED_FORMAT',
-    message: 'type is unsupported.',
+  const accepted = client.print({
+    requestId: 'REQ-HTML-001',
+    jobId: 'JOB-HTML-001',
+    type: 'html',
+    fileUrl: 'https://test.com/label.html',
+    waitMs: 1500,
+    copies: 1,
+    paper: { widthMm: 210, heightMm: 297 },
   });
+
+  expect(socket.sent.at(-1)).toEqual({
+    type: 'print',
+    request_id: 'REQ-HTML-001',
+    job_id: 'JOB-HTML-001',
+    format: 'html',
+    file_url: 'https://test.com/label.html',
+    wait_ms: 1500,
+    copies: 1,
+    paper: { width_mm: 210, height_mm: 297 },
+  });
+
+  socket.message({
+    type: 'job_status',
+    request_id: 'REQ-HTML-001',
+    job_id: 'JOB-HTML-001',
+    status: 'queued',
+  });
+
+  await expect(accepted).resolves.toMatchObject({ status: 'queued' });
+});
+
+test('serializes raw HTML print jobs for Agent rendering', async () => {
+  const { client, socket } = await connectClient();
+
+  const accepted = client.print({
+    requestId: 'REQ-RAW-HTML-001',
+    jobId: 'JOB-RAW-HTML-001',
+    type: 'raw-html',
+    html: '<main>Label</main>',
+    waitMs: 1000,
+  });
+
+  expect(socket.sent.at(-1)).toEqual({
+    type: 'print',
+    request_id: 'REQ-RAW-HTML-001',
+    job_id: 'JOB-RAW-HTML-001',
+    format: 'raw-html',
+    html: '<main>Label</main>',
+    wait_ms: 1000,
+  });
+
+  socket.message({
+    type: 'job_status',
+    request_id: 'REQ-RAW-HTML-001',
+    job_id: 'JOB-RAW-HTML-001',
+    status: 'queued',
+  });
+
+  await expect(accepted).resolves.toMatchObject({ status: 'queued' });
+});
+
+test('serializes HTML jobs in batches for Agent rendering', async () => {
+  const { client, socket } = await connectClient();
+
+  const accepted = client.printBatch({
+    requestId: 'REQ-HTML-BATCH-001',
+    batchId: 'BATCH-HTML-001',
+    jobs: [
+      {
+        jobId: 'JOB-HTML-BATCH-001',
+        type: 'html',
+        fileUrl: 'https://test.com/label.html',
+        waitMs: 0,
+      },
+      {
+        jobId: 'JOB-RAW-HTML-BATCH-001',
+        type: 'raw-html',
+        html: '<main>Batch label</main>',
+        waitMs: 30000,
+      },
+    ],
+  });
+
+  expect(socket.sent.at(-1)).toEqual({
+    type: 'print_batch',
+    request_id: 'REQ-HTML-BATCH-001',
+    batch_id: 'BATCH-HTML-001',
+    jobs: [
+      {
+        job_id: 'JOB-HTML-BATCH-001',
+        format: 'html',
+        file_url: 'https://test.com/label.html',
+        wait_ms: 0,
+      },
+      {
+        job_id: 'JOB-RAW-HTML-BATCH-001',
+        format: 'raw-html',
+        html: '<main>Batch label</main>',
+        wait_ms: 30000,
+      },
+    ],
+  });
+
+  socket.message({
+    type: 'job_status',
+    request_id: 'REQ-HTML-BATCH-001',
+    job_id: 'JOB-HTML-BATCH-001',
+    status: 'queued',
+  });
+
+  await expect(accepted).resolves.toMatchObject({ status: 'queued' });
+});
+
+test('rejects invalid HTML job field combinations and waitMs values', async () => {
+  const { client, socket } = await connectClient();
+
+  for (const job of [
+    { type: 'html', fileUrl: 'https://test.com/label.html', html: '<main>Label</main>' },
+    { type: 'raw-html', html: '<main>Label</main>', fileUrl: 'https://test.com/label.html' },
+    { type: 'raw-html', html: ' ' },
+    { type: 'html', fileUrl: 'https://test.com/label.html', waitMs: -1 },
+    { type: 'html', fileUrl: 'https://test.com/label.html', waitMs: 30001 },
+  ]) {
+    await expect(client.print(job)).rejects.toMatchObject({ code: 'INVALID_MESSAGE' });
+  }
 
   expect(socket.sent).toHaveLength(0);
 });
 
-test('rejects raw HTML print jobs because browser-side HTML rendering is not supported', async () => {
+test('rejects HTML jobs with non-HTTP(S) fileUrl', async () => {
   const { client, socket } = await connectClient();
 
   await expect(
     client.print({
-      requestId: 'REQ-HTML-RAW-001',
-      jobId: 'JOB-HTML-RAW-001',
-      type: 'html-raw',
-      html: '<section><h1>Label</h1></section>',
+      type: 'html',
+      fileUrl: 'data:text/html,<main>Label</main>',
     }),
-  ).rejects.toMatchObject({
-    code: 'UNSUPPORTED_FORMAT',
-    message: 'type is unsupported.',
-  });
+  ).rejects.toMatchObject({ code: 'INVALID_MESSAGE' });
+
+  expect(socket.sent).toHaveLength(0);
+});
+
+test('rejects HTML jobs with a non-integer waitMs', async () => {
+  const { client, socket } = await connectClient();
+
+  await expect(
+    client.print({
+      type: 'raw-html',
+      html: '<main>Label</main>',
+      waitMs: 1000.5,
+    }),
+  ).rejects.toMatchObject({ code: 'INVALID_MESSAGE' });
 
   expect(socket.sent).toHaveLength(0);
 });

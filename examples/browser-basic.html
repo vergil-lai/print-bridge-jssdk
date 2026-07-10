@@ -239,10 +239,6 @@
             widthMm: 210,
             heightMm: 297,
           },
-          documentTitle: 'PrintBridge HTML Sample',
-          html2pdfOptions: {
-            margin: 12,
-          },
         });
 
         log('html queued', accepted);
@@ -252,61 +248,57 @@
         const accepted = await client.print({
           requestId: 'EXAMPLE-HTML-RAW-001',
           jobId: 'EXAMPLE-HTML-RAW-JOB-001',
-          type: 'html-raw',
+          type: 'raw-html',
           html: `
+            <style>
+              body {
+                font-family: Arial, sans-serif;
+                color: #172033;
+              }
+
+              .raw-page {
+                border: 2px solid #0f766e;
+                padding: 28px;
+              }
+
+              h1 {
+                margin: 0 0 16px;
+                color: #0f766e;
+              }
+
+              p {
+                margin: 0 0 20px;
+                color: #475569;
+              }
+
+              table {
+                width: 100%;
+                border-collapse: collapse;
+              }
+
+              th,
+              td {
+                border: 1px solid #cbd5e1;
+                padding: 10px 12px;
+                text-align: left;
+              }
+            </style>
             <section class="raw-page">
               <h1>PrintBridge HTML Raw Sample</h1>
-              <p>Raw HTML is rendered to a PDF data URL in the browser before it is sent to the local Agent.</p>
+              <p>Raw HTML is rendered by the local Agent before printing.</p>
               <table>
                 <tbody>
                   <tr><th>Order</th><td>PB-RAW-20260705-001</td></tr>
-                  <tr><th>Format</th><td>html-raw</td></tr>
+                  <tr><th>Format</th><td>raw-html</td></tr>
                   <tr><th>Paper</th><td>A4 210 x 297 mm</td></tr>
                 </tbody>
               </table>
             </section>
           `,
-          style: `
-            body {
-              font-family: Arial, sans-serif;
-              color: #172033;
-            }
-
-            .raw-page {
-              border: 2px solid #0f766e;
-              padding: 28px;
-            }
-
-            h1 {
-              margin: 0 0 16px;
-              color: #0f766e;
-            }
-
-            p {
-              margin: 0 0 20px;
-              color: #475569;
-            }
-
-            table {
-              width: 100%;
-              border-collapse: collapse;
-            }
-
-            th,
-            td {
-              border: 1px solid #cbd5e1;
-              padding: 10px 12px;
-              text-align: left;
-            }
-          `,
           copies: 1,
           paper: {
             widthMm: 210,
             heightMm: 297,
-          },
-          documentTitle: 'PrintBridge HTML Raw Sample',
-          html2pdfOptions: {
-            margin: 12,
           },
         });
 

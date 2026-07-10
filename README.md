@@ -5,7 +5,7 @@
 它适合这些场景：
 
 - ERP、WMS、OMS、收银系统打印标签、面单、小票或业务报表
-- 浏览器页面把远程 PDF、图片、Office 文件交给本机打印机
+- 浏览器页面把远程 PDF、图片、Office 文件或 HTML 交给本机打印机
 - 业务系统已经生成好原始打印指令，需要发送给标签机或小票机
 - 不希望弹出浏览器打印预览窗口，而是交给本机 Agent 提交系统打印队列
 
@@ -171,6 +171,24 @@ await client.print({
 
 Office 文件支持 `docx`、`xlsx`、`pptx`。本机 Agent 会先转换为 PDF 再打印；SDK 不解析 Office 文件内容，打印效果以 Agent 转换后的 PDF 为准。
 
+### 打印 HTML：
+
+```ts
+await client.print({
+  type: "html",
+  fileUrl: "https://example.com/label.html",
+  waitMs: 1000,
+});
+
+await client.print({
+  type: "raw-html",
+  html: `<style>h1 { color: #0f766e; }</style><h1>Label</h1>`,
+  waitMs: 1000,
+});
+```
+
+`html` 只接受 HTTP(S) `fileUrl`，`raw-html` 只接受非空 `html` 字符串；两者的 `waitMs` 可为 0 到 30000 毫秒。SDK 只校验并序列化请求，由本机 Agent 下载或渲染 HTML、转换后再打印。
+
 ### 打印原始指令 (Raw commands)：
 
 ```ts
@@ -222,7 +240,7 @@ await client.printBatch({
 });
 ```
 
-批量打印表示一次下发多个 job。本机 Agent 仍会串行执行，避免同一台打印机并发抢占。批量任务可以混合 PDF、image、Office 和 raw。
+批量打印表示一次下发多个 job。本机 Agent 仍会串行执行，避免同一台打印机并发抢占。批量任务可以混合 PDF、image、Office、HTML 和 raw。
 
 `requestId`、`batchId` 和每个 job 的 `jobId` 都可以省略，SDK 会自动生成。
 
@@ -308,12 +326,15 @@ try {
 
 SDK 会在发送前做基础校验：
 
-- `type` 只能是 `pdf`、`image`、`raw`、`docx`、`xlsx`、`pptx`
+- `type` 只能是 `pdf`、`image`、`raw`、`docx`、`xlsx`、`pptx`、`html`、`raw-html`
 - `image` 和 Office 文件的 `fileUrl` 必须是 HTTP(S) URL
 - `pdf` 的 `fileUrl` 可以是 HTTP(S) URL，或 `data:application/pdf;base64,...`
 - Office 文件不接受 data URL
 - `raw` 必须提供 `dataBase64`
 - `raw` 不接受 `fileUrl`、`copies`、`paper`
+- `html` 必须提供 HTTP(S) `fileUrl`，不接受 `html`
+- `raw-html` 必须提供非空 `html`，不接受 `fileUrl`
+- HTML 任务的 `waitMs` 必须是 0 到 30000 的整数
 - 文件类任务的 `copies` 必须是正整数
 - 文件类任务的 `paper.widthMm` 和 `paper.heightMm` 必须大于 0
 

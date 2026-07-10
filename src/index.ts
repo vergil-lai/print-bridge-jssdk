@@ -37,9 +37,11 @@ const VALID_JOB_TYPES = new Set<PrintBridgeJobType>([
   'docx',
   'xlsx',
   'pptx',
+  'html',
+  'raw-html',
 ]);
 
-type AgentPrintableType = 'pdf' | 'image' | 'raw' | 'docx' | 'xlsx' | 'pptx';
+type AgentPrintableType = 'pdf' | 'image' | 'raw' | 'docx' | 'xlsx' | 'pptx' | 'html' | 'raw-html';
 
 interface AgentPrintableJob {
   jobId: string;
@@ -47,6 +49,8 @@ interface AgentPrintableJob {
   printerName?: string;
   fileUrl?: string;
   dataBase64?: string;
+  html?: string;
+  waitMs?: number;
   copies?: number;
   paper?: PrintBridgePaper;
 }
@@ -656,6 +660,30 @@ function jobToAgentJob(job: ResolvedPrintBridgeJob): AgentPrintableJob {
     };
   }
 
+  if (job.type === 'raw-html') {
+    return {
+      jobId: job.jobId,
+      type: job.type,
+      printerName: job.printerName,
+      html: job.html,
+      waitMs: job.waitMs,
+      copies: job.copies,
+      paper: job.paper,
+    };
+  }
+
+  if (job.type === 'html') {
+    return {
+      jobId: job.jobId,
+      type: job.type,
+      printerName: job.printerName,
+      fileUrl: job.fileUrl,
+      waitMs: job.waitMs,
+      copies: job.copies,
+      paper: job.paper,
+    };
+  }
+
   return {
     jobId: job.jobId,
     type: job.type,
@@ -745,6 +773,8 @@ function serializePrint(job: AgentPrintOptions): Record<string, unknown> {
     ...(job.printerName === undefined ? {} : { printer_name: job.printerName }),
     ...(job.fileUrl === undefined ? {} : { file_url: job.fileUrl }),
     ...(job.dataBase64 === undefined ? {} : { data_base64: job.dataBase64 }),
+    ...(job.html === undefined ? {} : { html: job.html }),
+    ...(job.waitMs === undefined ? {} : { wait_ms: job.waitMs }),
     ...(job.copies === undefined ? {} : { copies: job.copies }),
     ...(job.paper === undefined ? {} : { paper: serializePaper(job.paper) }),
   };
@@ -762,6 +792,8 @@ function serializeBatch(batch: AgentBatchOptions): Record<string, unknown> {
       ...(job.printerName === undefined ? {} : { printer_name: job.printerName }),
       ...(job.fileUrl === undefined ? {} : { file_url: job.fileUrl }),
       ...(job.dataBase64 === undefined ? {} : { data_base64: job.dataBase64 }),
+      ...(job.html === undefined ? {} : { html: job.html }),
+      ...(job.waitMs === undefined ? {} : { wait_ms: job.waitMs }),
       ...(job.copies === undefined ? {} : { copies: job.copies }),
       ...(job.paper === undefined ? {} : { paper: serializePaper(job.paper) }),
     })),
@@ -818,7 +850,32 @@ function validateJob(job: PrintBridgeJob): void {
     return;
   }
 
-  if (isOfficeJobType(job.type)) {
+  if (job.type === 'html') {
+    if (!isHttpUrl(job.fileUrl)) {
+      throw new PrintBridgeError('INVALID_MESSAGE', 'HTML print jobs require an HTTP(S) fileUrl.');
+    }
+
+    if ('html' in job && job.html !== undefined) {
+      throw new PrintBridgeError('INVALID_MESSAGE', 'html jobs do not accept html.');
+    }
+  }
+
+  if (job.type === 'raw-html') {
+    if (!job.html || job.html.trim().length === 0) {
+      throw new PrintBridgeError('INVALID_MESSAGE', 'html is required.');
+    }
+
+    if ('fileUrl' in job && job.fileUrl !== undefined) {
+      throw new PrintBridgeError('INVALID_MESSAGE', 'raw-html jobs do not accept fileUrl.');
+    }
+  }
+
+  const waitMs = job.type === 'html' || job.type === 'raw-html' ? job.waitMs : undefined;
+  if (waitMs !== undefined && (!Number.isInteger(waitMs) || waitMs < 0 || waitMs > 30000)) {
+    throw new PrintBridgeError('INVALID_MESSAGE', 'waitMs must be an integer between 0 and 30000.');
+  }
+
+  if (job.type === 'docx' || job.type === 'xlsx' || job.type === 'pptx') {
     if (!isHttpUrl(job.fileUrl)) {
       throw new PrintBridgeError(
         'INVALID_MESSAGE',
@@ -847,11 +904,6 @@ function validateJob(job: PrintBridgeJob): void {
       throw new PrintBridgeError('PAPER_NOT_CONFIGURED', 'paper.heightMm must be greater than 0.');
     }
   }
-}
-
-/** 判断任务类型是否需要 Agent 做 Office 转 PDF。 */
-function isOfficeJobType(type: PrintBridgeJobType): type is 'docx' | 'xlsx' | 'pptx' {
-  return type === 'docx' || type === 'xlsx' || type === 'pptx';
 }
 
 /** 要求调用方提供的选项中该字符串字段不能为空。 */

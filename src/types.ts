@@ -1,7 +1,15 @@
 import type { PrintBridgeError } from './index';
 
 /** SDK 对调用方暴露的打印内容类型。 */
-export type PrintBridgeJobType = 'pdf' | 'image' | 'raw' | 'docx' | 'xlsx' | 'pptx';
+export type PrintBridgeJobType =
+  | 'pdf'
+  | 'image'
+  | 'raw'
+  | 'docx'
+  | 'xlsx'
+  | 'pptx'
+  | 'html'
+  | 'raw-html';
 
 /** 任务流经本地打印队列时发出的生命周期状态。 */
 export type PrintBridgeJobStatus =
@@ -74,6 +82,22 @@ export interface PrintBridgeOfficeJob extends PrintBridgeFileJobBase {
   fileUrl: string;
 }
 
+/** 打印由 Agent 下载并渲染的 HTML 文件。 */
+export interface PrintBridgeHtmlJob extends PrintBridgeFileJobBase {
+  type: 'html';
+  fileUrl: string;
+  waitMs?: number;
+  html?: never;
+}
+
+/** 打印由 Agent 渲染的 HTML 字符串。 */
+export interface PrintBridgeRawHtmlJob extends PrintBridgeFileJobBase {
+  type: 'raw-html';
+  html: string;
+  waitMs?: number;
+  fileUrl?: never;
+}
+
 /** 打印调用方已经生成的原始打印指令。 */
 export interface PrintBridgeRawJob extends PrintBridgeJobBase {
   type: 'raw';
@@ -88,6 +112,8 @@ export type PrintBridgeJob =
   | PrintBridgePdfJob
   | PrintBridgeImageJob
   | PrintBridgeOfficeJob
+  | PrintBridgeHtmlJob
+  | PrintBridgeRawHtmlJob
   | PrintBridgeRawJob;
 
 /** 投递单个打印任务的选项。 */

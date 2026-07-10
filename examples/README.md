@@ -32,7 +32,7 @@ http://localhost:3000/examples/browser-basic.html
 
 这个页面包含单个 PDF、单个 JPG、批量打印、HTML URL 打印和 raw HTML 打印示例。
 
-HTML 示例会在浏览器里先下载 HTML URL，再转成 PDF data URL，最后交给本机 Agent 打印。默认实现会按需加载 `html2pdf.js` CDN；如果你的环境禁用了外部脚本，请在业务代码里通过 `htmlToPdf` 注入自己的转换实现。
+HTML URL 和 raw HTML 都会原样发送给本机 Agent，由 Agent 下载或渲染 HTML、转换后再打印；SDK 不会在浏览器中转换 HTML，也不会加载 `html2pdf.js`。
 
 如果本机 Agent 配置了 Origin 白名单，需要把这个页面的 Origin 加进去，例如 `http://localhost:3000`。
 
