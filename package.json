@@ -1,6 +1,6 @@
 {
   "name": "print-bridge-sdk",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Browser SDK for connecting Web pages to the local PrintBridge service.",
   "type": "module",
   "main": "./dist/index.js",
